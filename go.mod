@@ -1,4 +1,4 @@
-module amahl.xyz/meetingspq
+module github.com/sinf/meetingspq
 
 go 1.17
 
