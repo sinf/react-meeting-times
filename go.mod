@@ -1,4 +1,4 @@
-module amahl.xyz
+module amahl.xyz/meetingspq
 
 go 1.17
 
