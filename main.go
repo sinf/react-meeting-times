@@ -16,6 +16,9 @@ import (
 type App struct {
 	r *mux.Router
 	db *sql.DB
+	st_ua *sql.Stmt
+	st_get_m *sql.Stmt
+	st_get_ua *sql.Stmt
 }
 
 func (a *App) init(db_user, db_name string) {
@@ -37,6 +40,16 @@ func (a *App) init(db_user, db_name string) {
 	}
 
 	a.db = db
+
+	a.st_ua, err = db.Prepare(`SELECT * FROM "modify_user_ts"($1, $2, $3, $4, $5)`)
+	checkErr(err)
+
+	a.st_get_m, err = db.Prepare("SELECT * FROM meetings WHERE id = $1 LIMIT 1")
+	checkErr(err)
+
+	a.st_get_ua, err = db.Prepare("SELECT * FROM user_availab WHERE meeting = $1")
+	checkErr(err)
+
 	a.r = mux.NewRouter()
 	a.r.HandleFunc("/c", a.CreateMeetingR).Methods("POST")
 	a.r.HandleFunc("/m/{id}", a.GetMeetingR).Methods("GET")
@@ -49,24 +62,24 @@ func (a *App) run() {
 }
 
 type Meeting struct {
-	id int64 `json:"id"`
-	title string `json:"title"`
-	descr string `json:"descr"`
-	ts_from time.Time `json:"ts_from"`
-	ts_to time.Time `json:"ts_to"`
+	Id int64 `json:"id"`
+	Title string `json:"Title"`
+	Descr string `json:"Descr"`
+	Ts_from time.Time `json:"Ts_from"`
+	Ts_to time.Time `json:"Ts_to"`
 }
 
 type UserAvailab struct {
-	meeting int64 `json:"meeting"`
-	ts_from time.Time `json:"ts_from"`
-	ts_to time.Time `json:"ts_to"`
-	username string `json:"username"`
-	status int `json:"status"`
+	Meeting int64 `json:"meeting"`
+	Ts_from time.Time `json:"Ts_from"`
+	Ts_to time.Time `json:"Ts_to"`
+	Username string `json:"username"`
+	Status int `json:"status"`
 }
 
 type MeetingResponse struct {
-	meeting Meeting `json:"meeting"`
-	user_availab [] UserAvailab `json:"user_availab"`
+	Meeting Meeting `json:"meeting"`
+	User_availab [] UserAvailab `json:"user_availab"`
 }
 
 func main() {
@@ -86,27 +99,27 @@ func checkErr(err error) {
 }
 
 func (a *App) GetMeeting(id int64) *MeetingResponse {
-	rows,err := a.db.Query("SELECT * FROM meetings WHERE id = $1 LIMIT 1", id)
+	rows,err := a.st_get_m.Query(id)
 	checkErr(err)
 
 	mr := MeetingResponse{}
 
 	for rows.Next() {
 		var m Meeting
-		err = rows.Scan(&m.id, &m.title, &m.descr, &m.ts_from, &m.ts_to)
+		err = rows.Scan(&m.Id, &m.Title, &m.Descr, &m.Ts_from, &m.Ts_to)
 		checkErr(err)
 
-		rows2,err2 := a.db.Query("SELECT * FROM user_availab WHERE meeting = $1", id)
+		rows2,err2 := a.st_get_ua.Query(id)
 		checkErr(err2)
 
-		mr.meeting = m
+		mr.Meeting = m
 
 		for rows2.Next() {
 			var id int64
 			var ua UserAvailab
-			err = rows2.Scan(&id, &ua.meeting, &ua.ts_from, &ua.ts_to, &ua.username, &ua.status)
+			err = rows2.Scan(&id, &ua.Meeting, &ua.Ts_from, &ua.Ts_to, &ua.Username, &ua.Status)
 			checkErr(err)
-			mr.user_availab = append(mr.user_availab, ua)
+			mr.User_availab = append(mr.User_availab, ua)
 		}
 
 		return &mr
@@ -124,58 +137,78 @@ func (a *App) GetMeetingR(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id,err := strconv.ParseInt(id_s, 10, 64)
-	checkErr(err)
+	if err != nil || id < 0 {
+		http.Error(w, "you idiot! id is not valid", 404)
+		return
+	}
 
 	mr := a.GetMeeting(id)
 	if (mr != nil) {
-		fmt.Printf("mr.meeting.id=%d user_availab=%d\n", mr.meeting.id, len(mr.user_availab));
 		json.NewEncoder(w).Encode(mr)
 	} else {
 		http.Error(w, "meeting does not exist", 404)
 	}
 }
 
-func (a *App) CreateMeeting(title, descr, ts_from, ts_to string) int64 {
+func (a *App) CreateMeeting(Title, Descr, Ts_from, Ts_to string) int64 {
 	var id int64
-	err := a.db.QueryRow("INSERT INTO meetings (title, descr, ts_from, ts_to) VALUES ($1,$2,$3,$4) returning id;", title, descr, ts_from, ts_to).Scan(&id)
+	err := a.db.QueryRow("INSERT INTO meetings (Title, Descr, Ts_from, Ts_to) VALUES ($1,$2,$3,$4) returning id;", Title, Descr, Ts_from, Ts_to).Scan(&id)
 	checkErr(err)
 	return id
 }
 
 func (a *App) CreateMeetingR(w http.ResponseWriter, r *http.Request) {
-	title := r.FormValue("title")
-	if title == "" {
-		http.Error(w, "you idiot! fill in title", 404)
+	Title := r.FormValue("Title")
+	if Title == "" {
+		http.Error(w, "you idiot! fill in Title", 404)
 		return
 	}
 
-	descr := r.FormValue("descr")
-	ts_from := r.FormValue("ts_from")
-	ts_to := r.FormValue("ts_to")
+	Descr := r.FormValue("Descr")
+	Ts_from := r.FormValue("Ts_from")
+	Ts_to := r.FormValue("Ts_to")
 
 	// todo check date
-	id := a.CreateMeeting(title, descr, ts_from, ts_to)
+	id := a.CreateMeeting(Title, Descr, Ts_from, Ts_to)
 
 	// return 500 if sql error
 
 	var m Meeting
 	var err error
-	m.id = id
-	m.title = title
-	m.descr = descr
-	m.ts_from, err = time.Parse(time.RFC3339, ts_from)
+	m.Id = id
+	m.Title = Title
+	m.Descr = Descr
+	m.Ts_from, err = time.Parse(time.RFC3339, Ts_from)
 	checkErr(err)
-	m.ts_to, err = time.Parse(time.RFC3339, ts_to)
+	m.Ts_to, err = time.Parse(time.RFC3339, Ts_to)
 	checkErr(err)
 
 	json.NewEncoder(w).Encode(m)
 }
 
-func (a* App) SetUserAvail(meeting int64, ts_from, ts_to, username string, status int) {
-	// todo
+func (a* App) SetUserAvail(meeting int64, ua *UserAvailab) {
+	_, err := a.st_ua.Exec(meeting, ua.Ts_from, ua.Ts_to, ua.Username, ua.Status)
+	checkErr(err)
 }
 
 func (a* App) SetUserAvailR(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "unimpl", 501)
+	params := mux.Vars(r)
+	id_s := params["id"]
+	id,err := strconv.ParseInt(id_s, 10, 64)
+	if err != nil || id < 0 {
+		http.Error(w, "you idiot! id is not valid", 404)
+		return
+	}
+
+	var ua UserAvailab
+	j := json.NewDecoder(r.Body)
+	err = j.Decode(&ua)
+
+	if err != nil {
+		http.Error(w, "you idiot! POST body json can't be parsed!", 404)
+		return
+	}
+
+	a.SetUserAvail(id, &ua)
 }
 
