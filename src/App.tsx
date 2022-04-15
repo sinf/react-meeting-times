@@ -42,7 +42,7 @@ function week_days(t: Date) {
 			add_days(m, 4), add_days(m, 5), add_days(m, 6)];
 }
 
-const TIMESLOTS_HOUR = 4;
+const TIMESLOTS_HOUR = 2;
 const TIMESLOTS_DAY = 24*TIMESLOTS_HOUR;
 const TIMESLOT_DURATION = 60*60/TIMESLOTS_HOUR;
 
@@ -50,31 +50,89 @@ type CalendarProps = {
 	t: Date[];
 };
 type CalendarState = {
-	timeslots: number[];
+	timeslots: number[]; // availability status for the whole week
+	drag_from?: number;
+	drag_to?: number;
 };
 class Calendar extends React.Component<CalendarProps,CalendarState> {
 
 	constructor(props: CalendarProps) {
 		super(props);
 		this.state = {
-			timeslots: Array(TIMESLOTS_DAY*7).fill(0)
+			timeslots: Array(TIMESLOTS_DAY*7).fill(0),
 		};
 	}
 
-	render_timeslot(day: number, slot: number) {
-		const ok = this.state.timeslots[day * TIMESLOTS_DAY + slot];
-
+	date_range_of_timeslot(i: number) {
+		let day = Math.floor(i / TIMESLOTS_DAY);
+		let slot = Math.floor(i % TIMESLOTS_DAY);
 		let t0 = new Date(this.props.t[day]);
 		t0.setHours(Math.floor(slot/TIMESLOTS_HOUR), (slot % TIMESLOTS_HOUR) * TIMESLOT_DURATION / 60, 0);
-
 		let t1 = new Date(t0);
 		t1.setHours(t0.getHours() + 1);
+		return [t0, t1];
+	}
 
+	begin_drag(from: number) {
+		console.log('begin drag at', from);
+		this.setState({drag_from: from, drag_to: undefined});
+	}
+
+	update_drag(to: number) {
+		if (this.state.drag_from !== undefined) {
+			this.setState({drag_to: to});
+		}
+	}
+
+	end_drag(to: number) {
+		console.log('end drag at', to);
+		const from = this.state.drag_from;
+		if (from !== undefined) {
+			//const avail = this.state.timeslots[from] === 0 ? 1 : 0;
+			const avail = from <= to ? 1 : 0;
+			const lo = Math.min(from, to);
+			const hi = Math.max(from, to);
+			const temp:number[] = Object.assign([], this.state.timeslots);
+			for(let i=lo; i<=hi; ++i) {
+				temp[i] = avail;
+			}
+			console.log('paint from', from, 'to', to, 'with', avail);
+			this.setState({timeslots: temp, drag_from: undefined, drag_to: undefined});
+		} else {
+			this.setState({drag_from: undefined, drag_to: undefined});
+		}
+	}
+
+	being_painted(i: number) {
+		const from = this.state.drag_from;
+		const to = this.state.drag_to;
+		if (from === undefined || to === undefined) {
+			return false;
+		}
+		const lo = Math.min(from, to);
+		const hi = Math.max(from, to);
+		return lo <= i && i <= hi;
+	}
+
+	render_timeslot(day: number, slot: number) {
+		const i = day * TIMESLOTS_DAY + slot;
 		return (
-			<div className="timeslot"
-				data-timeslot-state={ok}
-				data-timeslot-t0={t0.toISOString()}
-				data-timeslot-t1={t1.toISOString()}/>
+			<div
+				className="timeslot"
+				key={i}
+				data-timeslot={this.state.timeslots[i]}
+				data-paint={this.being_painted(i)}
+				onClick={(e) => {
+					if (e.button === 0) {
+						if (this.state.drag_from === undefined) {
+							this.begin_drag(i);
+						} else {
+							this.end_drag(i);
+						}
+					}
+				}}
+				onMouseMove={(e) => { this.update_drag(i) }}
+			/>
 		);
 	}
 
@@ -87,20 +145,20 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 				for(let f=0; f<TIMESLOTS_HOUR; ++f) {
 					row2.push(this.render_timeslot(d, h + f));
 				}
-				row.push(<td>{row2}</td>);
+				row.push(<td key={d}>{row2}</td>);
 			}
-			rows.push(<tr>{row}</tr>);
+			rows.push(<tr key={h}>{row}</tr>);
 		}
 
 		return (
 			<div>
 				<table className="calendar">
 					<thead>
-						<tr> {
-							this.props.t.map((d) => <th>{day_title(d)}</th>)
-						} </tr>
+						<tr>{
+							this.props.t.map((d) => <th key={d.toISOString()}>{day_title(d)}</th>)
+						}</tr>
 					</thead>
-					<tbody> { rows } </tbody>
+					<tbody>{ rows }</tbody>
 				</table>
 			</div>
 		);

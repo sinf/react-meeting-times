@@ -9,19 +9,40 @@
 table.calendar {
 	border-collapse: collapse;
 }
-.calendar td, .calendar th {
+.calendar, .calendar * {
+	pointer-events: none;
+}
+
+.calendar th {
 	border: 1px solid black;
+}
+.calendar td, .calendar th {
 	padding: 0;
 	width: 2em;
 }
-
+.timeslot:last-of-type {
+	border-bottom: 1px solid black;
+}
 .timeslot {
+	pointer-events: auto;
+	border-left: 1px solid black;
 	width: 100%;
-	height: 0.25em;
+	height: 0.5em;
+}
+
+td:last-of-type .timeslot {
+	border-right: 1px solid black;
+}
+
+.timeslot[data-timeslot="0"] {
 	background: pink;
 }
 
-.timeslot[data-timeslot-state=1] {
+.timeslot[data-timeslot="1"] {
 	background: lime;
+}
+
+.timeslot[data-paint="true"] {
+	background: gray;
 }
 
