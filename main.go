@@ -21,6 +21,38 @@ type App struct {
 	st_get_ua *sql.Stmt
 }
 
+type Meeting struct {
+	Id int64 `json:"id"`
+	Title string `json:"Title"`
+	Descr string `json:"Descr"`
+	Ts_from time.Time `json:"Ts_from"`
+	Ts_to time.Time `json:"Ts_to"`
+}
+
+type UserAvailab struct {
+	Meeting int64 `json:"meeting"`
+	Ts_from time.Time `json:"Ts_from"`
+	Ts_to time.Time `json:"Ts_to"`
+	Username string `json:"username"`
+	Status int `json:"status"`
+}
+
+type MeetingResponse struct {
+	Meeting Meeting `json:"meeting"`
+	User_availab [] UserAvailab `json:"user_availab"`
+}
+
+func checkErr(err error) {
+   if err != nil {
+      panic(err)
+   }
+}
+
+func (a *App) run() {
+	fmt.Println("Server at 9080")
+	log.Fatal(http.ListenAndServe(":9080", a.r))
+}
+
 func (a *App) init(db_user, db_name string) {
 	//dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", db_user, db_password, db_name)
 	dbinfo := fmt.Sprintf("user=%s dbname=%s sslmode=disable", db_user, db_name)
@@ -56,32 +88,6 @@ func (a *App) init(db_user, db_name string) {
 	a.r.HandleFunc("/m/{id}", a.SetUserAvailR).Methods("POST")
 }
 
-func (a *App) run() {
-	fmt.Println("Server at 9080")
-	log.Fatal(http.ListenAndServe(":9080", a.r))
-}
-
-type Meeting struct {
-	Id int64 `json:"id"`
-	Title string `json:"Title"`
-	Descr string `json:"Descr"`
-	Ts_from time.Time `json:"Ts_from"`
-	Ts_to time.Time `json:"Ts_to"`
-}
-
-type UserAvailab struct {
-	Meeting int64 `json:"meeting"`
-	Ts_from time.Time `json:"Ts_from"`
-	Ts_to time.Time `json:"Ts_to"`
-	Username string `json:"username"`
-	Status int `json:"status"`
-}
-
-type MeetingResponse struct {
-	Meeting Meeting `json:"meeting"`
-	User_availab [] UserAvailab `json:"user_availab"`
-}
-
 func main() {
 	const (
     	DB_USER     = "postgres" // os.Getenv("DB_USER")
@@ -90,12 +96,6 @@ func main() {
 	a := App{}
 	a.init(DB_USER, DB_NAME)
 	a.run()
-}
-
-func checkErr(err error) {
-   if err != nil {
-      panic(err)
-   }
 }
 
 func (a *App) GetMeeting(id int64) *MeetingResponse {
@@ -122,6 +122,7 @@ func (a *App) GetMeeting(id int64) *MeetingResponse {
 			mr.User_availab = append(mr.User_availab, ua)
 		}
 
+		rows.Close()
 		return &mr
 	}
 
