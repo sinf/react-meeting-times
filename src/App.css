@@ -16,11 +16,11 @@ table.calendar {
 	pointer-events: none;
 }
 
-.calendar th {
+.calendar th.day {
 	border: 1px solid black;
 	font-size: 75%;
 }
-.calendar th[data-today="true"] {
+.calendar th.day[data-today="true"] {
 	background: yellow;
 }
 .calendar td, .calendar th {
@@ -38,7 +38,7 @@ table.calendar {
 	height: 0.75em;
 }
 
-td:last-of-type .timeslot {
+.calendar td:nth-of-type(8) {
 	border-right: 1px solid black;
 }
 

@@ -153,6 +153,10 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 		);
 	}
 
+	render_hour_label(h:number, k:string) {
+		return <td key={k} className="hour">{h/TIMESLOTS_HOUR}</td>;
+	}
+
 	render() {
 		const today = new Date();
 		let rows = [];
@@ -165,12 +169,11 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 				}
 				row.push(<td key={d} data-today={same_day(this.props.t[d], today)}>{row2}</td>);
 			}
-			let hour_label = <td className="hour">{h/TIMESLOTS_HOUR}</td>;
 			rows.push(
-				<tr key={h}>
-					{hour_label}
+				<tr key={"row"+h}>
+					{this.render_hour_label(h, "hourLabelL")}
 					{row}
-					{hour_label}
+					{this.render_hour_label(h, "hourLabelR")}
 				</tr>
 			);
 		}
@@ -183,7 +186,7 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 				<table className="calendar">
 					<thead>
 						<tr>
-							<th key="th11" className="hour"></th>
+							<th key="th11" className="hour header"></th>
 						{
 						this.props.t.map((d) =>
 								<th
@@ -192,7 +195,7 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 									className="day"
 								>{day_title(d)}</th>)
 						}
-							<th key="th22" className="hour"></th>
+							<th key="th22" className="hour header"></th>
 						</tr>
 					</thead>
 					<tbody>{ rows }</tbody>
