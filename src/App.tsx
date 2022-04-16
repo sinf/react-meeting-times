@@ -2,6 +2,11 @@ import React from 'react';
 import logo from './logo.svg';
 import './App.css';
 
+const TIMESLOTS_HOUR = 2;
+const TIMESLOTS_DAY = 24*TIMESLOTS_HOUR;
+const TIMESLOT_DURATION = 60*60/TIMESLOTS_HOUR;
+const FIRST_VISIBLE_TIMESLOT = 6*TIMESLOTS_HOUR;
+
 class TimeUnit extends React.Component {
 	constructor(props: any) {
 		super(props);
@@ -57,10 +62,6 @@ function week_days(t: Date) {
 	return [m, add_days(m, 1), add_days(m, 2), add_days(m, 3),
 			add_days(m, 4), add_days(m, 5), add_days(m, 6)];
 }
-
-const TIMESLOTS_HOUR = 2;
-const TIMESLOTS_DAY = 24*TIMESLOTS_HOUR;
-const TIMESLOT_DURATION = 60*60/TIMESLOTS_HOUR;
 
 type CalendarProps = {
 	t: Date[];
@@ -155,7 +156,7 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 	render() {
 		const today = new Date();
 		let rows = [];
-		for(let h=0; h<TIMESLOTS_DAY; h+=TIMESLOTS_HOUR) {
+		for(let h=FIRST_VISIBLE_TIMESLOT; h<TIMESLOTS_DAY; h+=TIMESLOTS_HOUR) {
 			let row = [];
 			for(let d=0; d<7; ++d) {
 				let row2 = [];
@@ -190,6 +191,8 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 }
 
 type AppState = {
+	username?: string;
+	username_temp: string;
 	t_start: Date;
 };
 class App extends React.Component<any,AppState> {
@@ -198,7 +201,8 @@ class App extends React.Component<any,AppState> {
 	constructor(props: any) {
 		super(props);
 		this.state = {
-			t_start : monday(new Date())
+			t_start : monday(new Date()),
+			username_temp : "",
 		};
 	}
 
@@ -216,22 +220,56 @@ class App extends React.Component<any,AppState> {
 		}
 	}
 
+	set_name(n: string) {
+		console.log("set username:", n);
+		this.setState({username: n, username_temp: n});
+	}
+
+	unset_name() {
+		let n = this.state.username!;
+		this.setState({username: undefined, username_temp: n});
+	}
+
+	render_name() {
+		if (this.state.username === undefined) {
+			return (<div className="user">
+    			<label htmlFor="username">Username: </label>
+    			<input
+    				id="username" name="username" type="text"
+    				value={this.state.username_temp}
+    				onChange={(e) => this.setState({username_temp: e.target.value})}
+    				maxLength={28} />
+    			<button
+    				onClick={(e) => this.set_name(this.state.username_temp)}
+    				>Enter</button>
+			</div>);
+		} else {
+			return (<div className="user">
+				<label>Username: </label>
+				<span id="username">{this.state.username}</span>
+				<span> </span>
+				<button
+					onClick={(e) => this.unset_name()}
+					>Edit</button>
+			</div>);
+		}
+	}
+
 	render() {
   	  return (
     	 <div className="App">
-    		<label htmlFor="username">Username: </label>
-    		<input id="username" name="username" type="text" maxLength={28} />
-    		<button id="username_ok">Enter</button><br/>
-			<button
-				onClick={(e) => this.setState({t_start : add_days(this.state.t_start, -7)})}
-				>&lt;- Go that way</button>
-			<button
-				onClick={(e) => this.setState({t_start : monday(new Date())})}
-				>Go to present</button>
-			<button
-				onClick={(e) => this.setState({t_start : add_days(this.state.t_start, 7)})}
-				>Go this way -&gt;</button>
-			<br/>
+    	 	{this.render_name()}
+    	 	<div>
+				<button
+					onClick={(e) => this.setState({t_start : add_days(this.state.t_start, -7)})}
+					>&lt;- Go that way</button>
+				<button
+					onClick={(e) => this.setState({t_start : monday(new Date())})}
+					>Go to present</button>
+				<button
+					onClick={(e) => this.setState({t_start : add_days(this.state.t_start, 7)})}
+					>Go this way -&gt;</button>
+			</div>
     		<Calendar t={week_days(this.state.t_start)} />
     	 </div>
   	  );
