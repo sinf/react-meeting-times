@@ -165,7 +165,14 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 				}
 				row.push(<td key={d} data-today={same_day(this.props.t[d], today)}>{row2}</td>);
 			}
-			rows.push(<tr key={h}>{row}</tr>);
+			let hour_label = <td className="hour">{h/TIMESLOTS_HOUR}</td>;
+			rows.push(
+				<tr key={h}>
+					{hour_label}
+					{row}
+					{hour_label}
+				</tr>
+			);
 		}
 
 		return (
@@ -175,13 +182,18 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 				</div>
 				<table className="calendar">
 					<thead>
-						<tr>{
-							this.props.t.map((d) =>
+						<tr>
+							<th key="th11" className="hour"></th>
+						{
+						this.props.t.map((d) =>
 								<th
 									key={d.toISOString()}
 									data-today={same_day(d, today)}
+									className="day"
 								>{day_title(d)}</th>)
-						}</tr>
+						}
+							<th key="th22" className="hour"></th>
+						</tr>
 					</thead>
 					<tbody>{ rows }</tbody>
 				</table>
