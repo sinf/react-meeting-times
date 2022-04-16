@@ -36,6 +36,22 @@ function add_days(t: Date, n: number) {
 	return t;
 }
 
+function same_day(a: Date, b: Date) {
+	return a.getFullYear() == b.getFullYear()
+		&& a.getMonth() == b.getMonth()
+		&& a.getDate() == b.getDate();
+}
+
+function week_nr(date1: Date) {
+    function serial(days:number) { return 86400000*days; }
+    function dateserial(year:number,month:number,day:number) { return (new Date(year,month-1,day).valueOf()); }
+    function weekday(date:number) { return (new Date(date)).getDay()+1; }
+    function yearserial(date:number) { return (new Date(date)).getFullYear(); }
+    let date = date1.valueOf(), 
+        date2 = dateserial(yearserial(date - serial(weekday(date-serial(1))) + serial(4)),1,3);
+    return ~~((date - date2 + serial(weekday(date2) + 5))/ serial(7));
+}
+
 function week_days(t: Date) {
 	let m = monday(t);
 	return [m, add_days(m, 1), add_days(m, 2), add_days(m, 3),
@@ -137,6 +153,7 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 	}
 
 	render() {
+		const today = new Date();
 		let rows = [];
 		for(let h=0; h<TIMESLOTS_DAY; h+=TIMESLOTS_HOUR) {
 			let row = [];
@@ -145,17 +162,24 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 				for(let f=0; f<TIMESLOTS_HOUR; ++f) {
 					row2.push(this.render_timeslot(d, h + f));
 				}
-				row.push(<td key={d}>{row2}</td>);
+				row.push(<td key={d} data-today={same_day(this.props.t[d], today)}>{row2}</td>);
 			}
 			rows.push(<tr key={h}>{row}</tr>);
 		}
 
 		return (
-			<div>
+			<div className="calendarFrame">
+				<div className="weekNr">
+					Week {week_nr(this.props.t[3])} of the colossal failure of {this.props.t[0].getFullYear()}
+				</div>
 				<table className="calendar">
 					<thead>
 						<tr>{
-							this.props.t.map((d) => <th key={d.toISOString()}>{day_title(d)}</th>)
+							this.props.t.map((d) =>
+								<th
+									key={d.toISOString()}
+									data-today={same_day(d, today)}
+								>{day_title(d)}</th>)
 						}</tr>
 					</thead>
 					<tbody>{ rows }</tbody>
@@ -165,12 +189,17 @@ class Calendar extends React.Component<CalendarProps,CalendarState> {
 	}
 }
 
-class App extends React.Component {
+type AppState = {
+	t_start: Date;
+};
+class App extends React.Component<any,AppState> {
 	pollTimer?: ReturnType<typeof setTimeout>;
 
 	constructor(props: any) {
 		super(props);
-		this.state = {};
+		this.state = {
+			t_start : monday(new Date())
+		};
 	}
 
 	pollTheServer() {
@@ -190,12 +219,20 @@ class App extends React.Component {
 	render() {
   	  return (
     	 <div className="App">
-    		<br/>
     		<label htmlFor="username">Username: </label>
     		<input id="username" name="username" type="text" maxLength={28} />
-    		<button id="username_ok">Enter</button>
-    		<br/>
-    		<Calendar t={week_days(new Date())} />
+    		<button id="username_ok">Enter</button><br/>
+			<button
+				onClick={(e) => this.setState({t_start : add_days(this.state.t_start, -7)})}
+				>&lt;- Go that way</button>
+			<button
+				onClick={(e) => this.setState({t_start : monday(new Date())})}
+				>Go to present</button>
+			<button
+				onClick={(e) => this.setState({t_start : add_days(this.state.t_start, 7)})}
+				>Go this way -&gt;</button>
+			<br/>
+    		<Calendar t={week_days(this.state.t_start)} />
     	 </div>
   	  );
   }

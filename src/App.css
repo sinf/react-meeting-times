@@ -3,11 +3,14 @@
 }
 
 .App {
-  text-align: center;
+	max-width: 30em;
+	margin: 0.5em auto 0.5em auto;
+	text-align: center;
 }
 
 table.calendar {
 	border-collapse: collapse;
+	margin: 0.5em auto 0.5em auto;
 }
 .calendar, .calendar * {
 	pointer-events: none;
@@ -15,10 +18,15 @@ table.calendar {
 
 .calendar th {
 	border: 1px solid black;
+	font-size: 75%;
+}
+.calendar th[data-today="true"] {
+	background: yellow;
 }
 .calendar td, .calendar th {
 	padding: 0;
-	width: 2em;
+	min-width: 2.5em;
+	max-width: 2.5em;
 }
 .timeslot:last-of-type {
 	border-bottom: 1px solid black;
@@ -27,7 +35,7 @@ table.calendar {
 	pointer-events: auto;
 	border-left: 1px solid black;
 	width: 100%;
-	height: 0.5em;
+	height: 0.75em;
 }
 
 td:last-of-type .timeslot {
