@@ -27,9 +27,20 @@ table.calendar {
 	padding: 0;
 	min-width: 2.5em;
 	max-width: 2.5em;
+	overflow: visible;
 }
 .timeslot:last-of-type {
-	border-bottom: 1px solid black;
+	border-bottom: 1px dotted black;
+}
+tr:nth-of-type(even) .hourlabel {
+	visibility: hidden;
+}
+.hourlabel {
+	position: relative;
+	top: -0.75em;
+}
+tr:nth-of-type(odd) .hourlabel {
+	vertical-align: top;
 }
 .timeslot {
 	pointer-events: auto;
@@ -42,15 +53,21 @@ table.calendar {
 	border-right: 1px solid black;
 }
 
-.timeslot[data-timeslot="0"] {
-	background: pink;
-}
+.calendar.edit .timeslot[data-timeslot="0"] { background: #82A1F5; }
+.calendar.edit .timeslot[data-timeslot="0"]:nth-of-type(odd) { background: #7490DB; }
+.calendar.edit .timeslot[data-timeslot="1"] { background: #C6F582; }
+.calendar.edit .timeslot[data-timeslot="1"]:nth-of-type(odd) { background: #B1DB74; }
+.calendar.edit .timeslot[data-paint="true"]:nth-of-type(n) { background: white; }
 
-.timeslot[data-timeslot="1"] {
-	background: lime;
-}
-
-.timeslot[data-paint="true"] {
-	background: gray;
-}
+.calendar.view .timeslot[data-users="0"] { background: white; }
+.calendar.view .timeslot[data-users="1"] { background: #B6D2FF; }
+.calendar.view .timeslot[data-users="1"]:nth-of-type(odd) { background: #A7C1EB; }
+.calendar.view .timeslot[data-users="2"] { background: #98B0D6; }
+.calendar.view .timeslot[data-users="2"]:nth-of-type(odd) { background: #8A9FC2; }
+.calendar.view .timeslot[data-users="3"] { background: #7B8EAD; }
+.calendar.view .timeslot[data-users="3"]:nth-of-type(odd) { background: #6D7E99; }
+.calendar.view .timeslot[data-users="4"] { background: #5E6D85; }
+.calendar.view .timeslot[data-users="4"]:nth-of-type(odd) { background: #4F5C70; }
+.calendar.view .timeslot[data-users] { background: #414B5C; }
+.calendar.view .timeslot[data-users]:nth-of-type(odd) { background: #2D3440; }
 
