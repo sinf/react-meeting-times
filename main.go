@@ -24,14 +24,14 @@ type Meeting struct {
 	Id int64 `json:"id"`
 	Title string `json:"title"`
 	Descr string `json:"descr"`
-	Ts_from time.Time `json:"ts_from"`
-	Ts_to time.Time `json:"ts_to"`
+	Ts_from time.Time `json:"from"`
+	Ts_to time.Time `json:"to"`
 }
 
 type UserAvailabT struct {
 	Status int `json:"status"`
-	Ts_from time.Time `json:"ts_from"`
-	Ts_to time.Time `json:"ts_to"`
+	Ts_from time.Time `json:"from"`
+	Ts_to time.Time `json:"to"`
 }
 
 type UserAvailab struct {
