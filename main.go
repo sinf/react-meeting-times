@@ -16,30 +16,33 @@ import (
 type App struct {
 	r *mux.Router
 	db *sql.DB
-	st_ua *sql.Stmt
 	st_get_m *sql.Stmt
 	st_get_ua *sql.Stmt
 }
 
 type Meeting struct {
 	Id int64 `json:"id"`
-	Title string `json:"Title"`
-	Descr string `json:"Descr"`
-	Ts_from time.Time `json:"Ts_from"`
-	Ts_to time.Time `json:"Ts_to"`
+	Title string `json:"title"`
+	Descr string `json:"descr"`
+	Ts_from time.Time `json:"ts_from"`
+	Ts_to time.Time `json:"ts_to"`
+}
+
+type UserAvailabT struct {
+	Status int `json:"status"`
+	Ts_from time.Time `json:"ts_from"`
+	Ts_to time.Time `json:"ts_to"`
 }
 
 type UserAvailab struct {
 	Meeting int64 `json:"meeting"`
-	Ts_from time.Time `json:"Ts_from"`
-	Ts_to time.Time `json:"Ts_to"`
 	Username string `json:"username"`
-	Status int `json:"status"`
+	T [] UserAvailabT `json:"t"`
 }
 
 type MeetingResponse struct {
 	Meeting Meeting `json:"meeting"`
-	User_availab [] UserAvailab `json:"user_availab"`
+	Users [] UserAvailab `json:"users"`
 }
 
 func checkErr(err error) {
@@ -73,9 +76,6 @@ func (a *App) init(db_user, db_name string) {
 
 	a.db = db
 
-	a.st_ua, err = db.Prepare(`SELECT * FROM "modify_user_ts"($1, $2, $3, $4, $5)`)
-	checkErr(err)
-
 	a.st_get_m, err = db.Prepare("SELECT * FROM meetings WHERE id = $1 LIMIT 1")
 	checkErr(err)
 
@@ -83,9 +83,9 @@ func (a *App) init(db_user, db_name string) {
 	checkErr(err)
 
 	a.r = mux.NewRouter()
-	a.r.HandleFunc("/c", a.CreateMeetingR).Methods("POST")
-	a.r.HandleFunc("/m/{id}", a.GetMeetingR).Methods("GET")
-	a.r.HandleFunc("/m/{id}", a.SetUserAvailR).Methods("POST")
+	a.r.HandleFunc("/create", a.CreateMeetingR).Methods("POST")
+	a.r.HandleFunc("/meeting/{id}", a.GetMeetingR).Methods("GET")
+	a.r.HandleFunc("/update", a.SetUserAvailR).Methods("POST")
 }
 
 func main() {
@@ -98,8 +98,8 @@ func main() {
 	a.run()
 }
 
-func (a *App) GetMeeting(id int64) *MeetingResponse {
-	rows,err := a.st_get_m.Query(id)
+func (a *App) GetMeeting(meeting_id int64) *MeetingResponse {
+	rows,err := a.st_get_m.Query(meeting_id)
 	checkErr(err)
 
 	mr := MeetingResponse{}
@@ -108,21 +108,36 @@ func (a *App) GetMeeting(id int64) *MeetingResponse {
 		var m Meeting
 		err = rows.Scan(&m.Id, &m.Title, &m.Descr, &m.Ts_from, &m.Ts_to)
 		checkErr(err)
+		rows.Close()
+		mr.Meeting = m
 
-		rows2,err2 := a.st_get_ua.Query(id)
+		rows2,err2 := a.st_get_ua.Query(meeting_id)
 		checkErr(err2)
 
-		mr.Meeting = m
+		var users = make(map[string]UserAvailab);
 
 		for rows2.Next() {
 			var id int64
 			var ua UserAvailab
-			err = rows2.Scan(&id, &ua.Meeting, &ua.Ts_from, &ua.Ts_to, &ua.Username, &ua.Status)
+			var t UserAvailabT
+			err = rows2.Scan(&id, &ua.Meeting, &t.Ts_from, &t.Ts_to, &ua.Username, &t.Status)
 			checkErr(err)
-			mr.User_availab = append(mr.User_availab, ua)
+
+			if _, ok := users[ua.Username]; !ok {
+				users[ua.Username] = ua
+				ua.T = []UserAvailabT{t}
+			} else {
+				ua.T = append(users[ua.Username].T, t)
+			}
+
+			users[ua.Username] = ua
+		}
+		rows2.Close()
+
+		for _,u := range users {
+			mr.Users = append(mr.Users, u)
 		}
 
-		rows.Close()
 		return &mr
 	}
 
@@ -154,62 +169,91 @@ func (a *App) GetMeetingR(w http.ResponseWriter, r *http.Request) {
 func (a *App) CreateMeeting(Title, Descr, Ts_from, Ts_to string) int64 {
 	var id int64
 	err := a.db.QueryRow("INSERT INTO meetings (Title, Descr, Ts_from, Ts_to) VALUES ($1,$2,$3,$4) returning id;", Title, Descr, Ts_from, Ts_to).Scan(&id)
-	checkErr(err)
+	if err != nil {
+		return -1
+	}
 	return id
 }
 
-func (a *App) CreateMeetingR(w http.ResponseWriter, r *http.Request) {
-	Title := r.FormValue("Title")
-	if Title == "" {
-		http.Error(w, "you idiot! fill in Title", 404)
-		return
+func checkStr(w http.ResponseWriter, what string, s string, min_len int, max_len int) bool {
+	e := 404
+	if len(s) < min_len {
+		http.Error(w, fmt.Sprintf("you idiot! %s is too short or empty", what), e)
+		return true
 	}
+	if len(s) > max_len {
+		http.Error(w, fmt.Sprintf("you idiot! %s is too long", what), e)
+		return true
+	}
+	return false
+}
 
-	Descr := r.FormValue("Descr")
-	Ts_from := r.FormValue("Ts_from")
-	Ts_to := r.FormValue("Ts_to")
-
-	// todo check date
-	id := a.CreateMeeting(Title, Descr, Ts_from, Ts_to)
-
-	// return 500 if sql error
-
+func (a *App) CreateMeetingR(w http.ResponseWriter, r *http.Request) {
 	var m Meeting
 	var err error
-	m.Id = id
-	m.Title = Title
-	m.Descr = Descr
-	m.Ts_from, err = time.Parse(time.RFC3339, Ts_from)
-	checkErr(err)
-	m.Ts_to, err = time.Parse(time.RFC3339, Ts_to)
-	checkErr(err)
-
-	json.NewEncoder(w).Encode(m)
-}
-
-func (a* App) SetUserAvail(meeting int64, ua *UserAvailab) {
-	_, err := a.st_ua.Exec(meeting, ua.Ts_from, ua.Ts_to, ua.Username, ua.Status)
-	checkErr(err)
-}
-
-func (a* App) SetUserAvailR(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	id_s := params["id"]
-	id,err := strconv.ParseInt(id_s, 10, 64)
-	if err != nil || id < 0 {
-		http.Error(w, "you idiot! id is not valid", 404)
-		return
-	}
-
-	var ua UserAvailab
 	j := json.NewDecoder(r.Body)
-	err = j.Decode(&ua)
+	err = j.Decode(&m)
 
 	if err != nil {
 		http.Error(w, "you idiot! POST body json can't be parsed!", 404)
 		return
 	}
 
-	a.SetUserAvail(id, &ua)
+	if checkStr(w, "title", m.Title, 1, 80) || checkStr(w, "descr", m.Descr, 0, 300) {
+		return
+	}
+
+	// todo check if date are valid
+
+	id := a.CreateMeeting(m.Title, m.Descr, m.Ts_from.Format(time.RFC3339), m.Ts_to.Format(time.RFC3339))
+
+	if id < 0 {
+		http.Error(w, "failed to create meeting. wtf", 500)
+		return
+	}
+
+	m.Id = id
+	//m.Ts_from, err = time.Parse(time.RFC3339, Ts_from)
+	//checkErr(err)
+
+	json.NewEncoder(w).Encode(m)
+}
+
+func (a* App) SetUserAvail(ua *UserAvailab) {
+
+	tx, err := a.db.Begin()
+	checkErr(err)
+
+	_, err = tx.Exec("DELETE FROM user_availab WHERE meeting = ? AND username = ?", ua.Meeting, ua.Username)
+	checkErr(err)
+
+	st, err := tx.Prepare("INSERT INTO user_availab (meeting,ts_from,ts_to,username,status) VALUES (?,?,?,?,?)")
+	checkErr(err)
+
+	for _, t := range ua.T {
+		_, err := st.Exec(ua.Meeting, t.Ts_from, t.Ts_to, ua.Username, t.Status)
+		checkErr(err)
+	}
+
+	checkErr(st.Close())
+	checkErr(tx.Commit())
+}
+
+func (a* App) SetUserAvailR(w http.ResponseWriter, r *http.Request) {
+	var ua UserAvailab
+	j := json.NewDecoder(r.Body)
+	err := j.Decode(&ua)
+
+	if err != nil {
+		http.Error(w, "you idiot! POST body json can't be parsed!", 404)
+		return
+	}
+
+	if len(ua.Username) < 1 || len(ua.Username) > 28 {
+		http.Error(w, "you idiot! username is not valid", 404)
+		return
+	}
+
+	a.SetUserAvail(&ua)
 }
 
