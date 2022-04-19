@@ -274,7 +274,15 @@ const Hourgrid = (
 
 	return (
 		<table className="calendar"
-			onMouseLeave={hover_at ? (e) => hover_at(-1,0,0) : undefined} >
+			onMouseLeave={(e) => {
+				if (hover_at) hover_at(-1,0,0);
+				if (true) {
+					// interrupt drag. annoying when operating near table edge
+					// but easy fix to issues when user clicks some button while dragging
+					setDragA(undefined);
+					setDragB(undefined);
+				}
+			}}>
 			<thead>
 				<tr>
 					<th key="headHourLabelL" className="hourlabel header"></th>
@@ -294,10 +302,14 @@ const Hourgrid = (
 	);
 };
 
+function uat_str(t: UserAvailabT):string {
+	const f = t.from;
+	return `${DDMM(f)} ${day_title(f)}: ${HHMM(f)} .. ${HHMM(t.to)}  status=${t.status}`;
+}
+
 function print_intervals(tv: UserAvailabT[]) {
 	for(const t of tv) {
-		const f = t.from;
-		console.log(`${DDMM(f)} ${day_title(f)}: ${HHMM(f)} .. ${HHMM(t.to)}  status=${t.status}`);
+		console.log(uat_str(t));
 	}
 }
 
@@ -322,7 +334,7 @@ class TimeslotTable {
 		// user cant see earliest hours, so blank them out here to prevent unintended availability
 		let ts1:number[] = [];
 		for(let i=0; i<this.ts.length; ++i) {
-			ts1[i] = i < FIRST_VISIBLE_TIMESLOT ? 0 : this.ts[i];
+			ts1[i] = Math.floor(i % TIMESLOTS_DAY) < FIRST_VISIBLE_TIMESLOT ? 0 : this.ts[i];
 		}
 		return timeslots_to_ranges(this.start, ts1);
 	}
@@ -425,6 +437,13 @@ function TooltipContent({i, a, b, edit}) {
 	</div>);
 }
 
+const howto = `
+Click on the calendar to start selecting a time interval.
+Move the cursor somewhere else and click again to paint the selected times.
+They will be painted as "available" if the last clicked time is after the initially clicked time.
+They will be painted as "unavailable" if the last clicked time is before the initially clicked time.
+`;
+
 function App(props) {
 	let [user,setUser] = React.useState("test");
 	let [edit,setEdit] = React.useState(false);
@@ -445,6 +464,15 @@ function App(props) {
 		setTs(ts);
 	}
 
+	let uat:UserAvailabT[] = [];
+	if (edit) {
+		// discrete timeslots -> list of start/stop ranges
+		for(const t of tsCache.values()) {
+			uat = uat.concat(t.to_intervals());
+		}
+		uat = uat.sort((a,b) => a.from-b.from);
+	}
+
 	function beginEdit() {
 		// populate tsCache with stuff from the server
 		console.log("begin editing");
@@ -452,11 +480,6 @@ function App(props) {
 
 	function endEdit() {
 		console.log("end editing");
-		let tv:UserAvailabT[] = [];
-		for(const t of tsCache.values()) {
-			tv = tv.concat(t.to_intervals());
-		}
-		print_intervals(tv);
 		//setTsCache(new Map<string,TimeslotTable>());
 	}
 
@@ -507,6 +530,21 @@ function App(props) {
 							"Stop editing and submit my new timetable",
 						][edit?1:0]}
 					</button>
+
+					{ !edit ? undefined :
+						<div className="time-interval-list">
+							<div className="title">{uat.length > 0 ? "I'm available on" : howto}</div>
+							{
+								uat.map((t) =>
+									<div key={t.from} className="item">
+										<span>{DDMM(t.from)} </span>
+										<span>{day_title(t.from)} </span>
+										<span>{HHMM(t.from)}</span> .. <span> {HHMM(t.to)}</span>
+									</div>
+								)
+							}
+						</div>
+					}
 				</div>
 			</div>
 		</div>

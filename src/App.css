@@ -98,3 +98,8 @@ tr:nth-of-type(odd) .hourlabel {
 	z-index: 50;
 }
 
+.time-interval-list .item span {
+	display: inline-block;
+	min-width: 3em;
+}
+
