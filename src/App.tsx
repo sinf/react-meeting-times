@@ -4,6 +4,7 @@ import './App.css';
 
 const TIMESLOTS_HOUR = 2;
 const TIMESLOTS_DAY = 24*TIMESLOTS_HOUR;
+const TIMESLOTS_WEEK = 7*TIMESLOTS_DAY;
 const TIMESLOT_DURATION_MIN = 60/TIMESLOTS_HOUR;
 const FIRST_VISIBLE_TIMESLOT = 6*TIMESLOTS_HOUR;
 
@@ -12,6 +13,7 @@ class DummyBackend {
 	users: Map<string, UserAvailabT[]>;
 
 	constructor() {
+		console.log("backend: constructor");
 		let t0 = monday(new Date());
 		this.meeting = {
 			id: 123,
@@ -24,6 +26,7 @@ class DummyBackend {
 	}
 
 	fetch(): UserAvailab[] {
+		console.log("backend: fetch all");
 		let ua:UserAvailab[] = [];
 		for(let [name, t] of this.users.entries()) {
 			ua.push({
@@ -36,22 +39,12 @@ class DummyBackend {
 	}
 
 	send(user: string, t: UserAvailabT[]) {
+		console.log("backend: update user ", user);
 		this.users[user] = t;
 	}
 }
 
 let dummy_backend = new DummyBackend();
-
-class TimeUnit extends React.Component {
-	constructor(props: any) {
-		super(props);
-	}
-	render() {
-		return (
-			<div></div>
-		);
-	}
-}
 
 function day_title(da: Date):string {
 	return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][da.getDay()];
@@ -67,8 +60,16 @@ function day_title_tag(da: Date) {
 	</div>);
 }
 
+function padzero2(x:number):string {
+	return x < 10 ? "0" + x : x;
+}
+
+function HHMM_1(h:number, m:number):string {
+	return `${padzero2(h)}:${padzero2(m)}`;
+}
+
 function HHMM(da: Date):string {
-	return `${da.getHours()}:${da.getMinutes()}`;
+	return HHMM_1(da.getHours(), da.getMinutes());
 }
 
 function monday(t: Date): Date {
@@ -100,19 +101,22 @@ function week_nr(date1: Date) {
     return ~~((date - date2 + serial(weekday(date2) + 5))/ serial(7));
 }
 
-function week_days(t: Date) {
+function get_week_days(t: Date):Date[] {
 	let m = monday(t);
 	return [m, add_days(m, 1), add_days(m, 2), add_days(m, 3),
 			add_days(m, 4), add_days(m, 5), add_days(m, 6)];
 }
 
 type CalendarProps = {
-	t: Date[];
+	t_initial: Date;
 	username?: string;
-	editmode: boolean;
 };
 type CalendarState = {
+	t_cursor:Date;
+	t: Date[];
+	editmode: boolean;
 	timeslots: number[]; // availability status for the whole week
+	tv: UserAvailab[];
 	users: string[][]; // list of users for each timeslot
 	drag_from?: number;
 	drag_to?: number;
@@ -144,6 +148,16 @@ type UserAvailabT = {
 	from: Date;
 	to: Date;
 };
+
+function drop_between_t(uu: UserAvailabT[], from: Date, to:Date): UserAvailabT[] {
+	return uu.filter((u) => !(u.from <= to && u.to >= from));
+}
+function pick_between_t(uu: UserAvailabT[], from: Date, to:Date): UserAvailabT[] {
+	return uu.filter((u) => u.from <= to && u.to >= from);
+}
+function update_range(a: UserAvailabT[], b: UserAvailabT[], from:Date, to:Date): UserAvailabT[] {
+	return drop_between_t(a, from, to).concat(b);
+}
 
 function timeslots_to_ranges(t_start: Date, timeslots: number[]): UserAvailabT[] {
 	let ua : UserAvailabT[] = [];
@@ -179,367 +193,271 @@ function ranges_to_timeslots(t_start: Date, timeslots: number[], time_ranges: Us
 	}
 }
 
-class Calendar extends React.Component<CalendarProps,CalendarState> {
+const Hourgrid = (
+{cursor,cell_color,paint_cells,edit,hover_at}
+) => {
+	const day_start:Date[] = get_week_days(cursor);
+	const today = new Date();
+	const render_hour_label =
+		(h, k) => <td key={k} className="hourlabel">{h/TIMESLOTS_HOUR}</td>;
+	let [dragA,setDragA] = React.useState(undefined);
+	let [dragB,setDragB] = React.useState(undefined);
+	const dragMin = Math.min(dragA,dragB);
+	const dragMax = Math.max(dragA,dragB);
+	const begin_drag = (i) => {
+		setDragA(i);
+		setDragB(i);
+	};
+	const update_drag = (i) => {
+		if (dragA !== undefined) {
+			setDragB(i);
+		}
+	};
+	const end_drag = (i) => {
+		if (dragA !== undefined && dragB !== undefined) {
+			paint_cells(dragMin, dragMax, dragA == dragB ? -1 : (dragA < dragB ? 1 : 0));
+		}
+		setDragA(undefined);
+		setDragB(undefined);
+	};
 
-	constructor(props: CalendarProps) {
-		super(props);
-		this.state = {
-			timeslots: Array(TIMESLOTS_DAY*7).fill(0),
-			users: Array(TIMESLOTS_DAY*7).fill([]),
-		};
+	let rows = [];
+	for(let h=FIRST_VISIBLE_TIMESLOT; h<TIMESLOTS_DAY; h+=TIMESLOTS_HOUR) {
+		let row = [];
+		for(let d=0; d<7; ++d) {
+			let hour_block = [];
+			for(let f=0; f<TIMESLOTS_HOUR; ++f) {
+				const i = d * TIMESLOTS_DAY + h + f;
+				const being_painted = dragMin <= i && dragMax >= i;
+				hour_block.push(
+					<div key={i}
+						className={"timeslot"
+							+ (being_painted ? " paint" : "")
+							+ (edit ? " edit" : "")
+						}
+						data-color={cell_color(i)}
+						onClick={(e) => {
+							if (edit && e.button === 0) {
+								if (dragA === undefined) {
+									begin_drag(i);
+								} else {
+									end_drag(i);
+								}
+							}
+							if (hover_at) {
+								hover_at(i, e.clientX, e.clientY, dragA, dragB);
+							}
+						}}
+						onMouseMove={(e) => {
+							if (edit) update_drag(i);
+							if (hover_at) hover_at(i, e.clientX, e.clientY, dragA, dragB);
+						}}
+						>
+						<div className="hl"/>
+					</div>
+				);
+			}
+			row.push(<td key={d} data-today={same_day(day_start[d], today)}>{hour_block}</td>);
+		}
+		rows.push(
+			<tr key={"row"+h}>
+				{render_hour_label(h, "hourLabelL")}
+				{row}
+				{render_hour_label(h, "hourLabelR")}
+			</tr>
+		);
 	}
 
-	getUserAvailabT() {
+	return (
+		<table className="calendar"
+			onMouseLeave={hover_at ? (e) => hover_at(-1,0,0) : undefined} >
+			<thead>
+				<tr>
+					<th key="headHourLabelL" className="hourlabel header"></th>
+					{
+						day_start.map((d) =>
+							<th
+								key={d.toISOString()}
+								data-today={same_day(d, today)}
+								className="day"
+							>{day_title_tag(d)}</th>)
+					}
+					<th key="headHourLabelR" className="hourlabel header"></th>
+				</tr>
+			</thead>
+			<tbody>{ rows }</tbody>
+		</table>
+	);
+};
+
+function print_intervals(tv: UserAvailabT[]) {
+	for(const t of tv) {
+		console.log(`${day_title(t.from)}: ${HHMM(t.from)} .. ${HHMM(t.to)}  status=${t.status}`);
+	}
+}
+
+class TimeslotTable {
+	ts: number[];
+
+	constructor() {
+		this.ts = Array(TIMESLOTS_WEEK).fill(0);
+	}
+
+	paint(from:number, to:number, color:number) {
+		let c = this.copy();
+		for(let i=from; i<=to; ++i) {
+			c.ts[i] = color<0 ? (this.ts[i] ^ 1) : color;
+		}
+		return c;
+	}
+
+	to_intervals(t_start:Date[]): UserAvailabT[] {
 		let tv:UserAvailabT[] = [];
 		for(let d=0; d<7; ++d) {
 			const n = TIMESLOTS_DAY;
 			const f = FIRST_VISIBLE_TIMESLOT;
-			tv = tv.concat(timeslots_to_ranges(add_min(this.props.t[d], f*TIMESLOT_DURATION_MIN),
+			tv = tv.concat(timeslots_to_ranges(add_min(t_start[d], f*TIMESLOT_DURATION_MIN),
 				this.state.timeslots.slice(d*n+f, (d+1)*n)));
 		}
 		return tv;
 	}
 
-	pushUpdate() {
-		if (!this.state.dirty) {
-			console.log("no changes, not updating");
-			return;
-		}
-		const tv = this.getUserAvailabT();
-
-		console.log("sending new times");
-		for(const t of tv) {
-			console.log(`${day_title(t.from)}: ${HHMM(t.from)} .. ${HHMM(t.to)}  status=${t.status}`);
-		}
-
-		dummy_backend.send(this.props.username, tv);
-		this.setState({dirty:false});
+	from_intervals(t_monday:Date, tv:UserAvailabT[]) {
+		ranges_to_timeslots(t_monday, this.ts, tv);
 	}
 
-	fetchData() {
-		console.log("fetching data, username: ", this.props.username);
-
-		let ua = dummy_backend.fetch();
-		let me = ua.find((x) => x.username === this.props.username);
-		let temp_ts = Array(TIMESLOTS_DAY*7).fill(0);
-		let temp_u = Array(TIMESLOTS_DAY*7).fill([]);
-
-		if (me !== undefined) {
-			console.log("found self");
-			ranges_to_timeslots(this.props.t[0], temp_ts, me.T);
-		}
-
-		this.setState({
-			timeslots: temp_ts,
-			users: temp_u,
-		});
+	copy():TimeslotTable {
+		let t = new TimeslotTable();
+		for(let i=0; i<this.ts.length; ++i) { t.ts[i] = this.ts[i]; }
+		return t;
 	}
+}
 
-	componentDidMount() {
-		this.fetchData();
-	}
+function get_meeting_id():number {
+	const query = new URLSearchParams(document.location.search);
+	return parseInt(query.get("meeting")!);
+}
 
-	componentDidUpdate(oldProps: CalendarProps) {
-		if (this.props.t[0].toISOString() != oldProps.t[0].toISOString()) {
-			// navigated to another week
-			if (this.props.editmode) {
-				this.pushUpdate();
-			}
-			this.fetchData();
-		} else {
-			// same date as before
-			if (oldProps.editmode && !this.props.editmode) {
-				// left edit mode, should push the new edits
-				this.pushUpdate();
-			}
-		}
-	}
+const WeekNavButs = (
+{cursor,setCursor}:{cursor:Date,setCursor:Object}
+) => {
+	return (
+   <div className="weekNav">
+		<div className="weekNr">
+			Week {week_nr(cursor)} of the colossal failure of {cursor.getFullYear()}
+		</div>
+		<button
+			onClick={(e) => setCursor(add_days(cursor, -7))}
+			>&lt;- Go that way</button>
+		<button
+			onClick={(e) => setCursor(new Date())}
+			>Go to present</button>
+		<button
+			onClick={(e) => setCursor(add_days(cursor, 7))}
+			>Go this way -&gt;</button>
+	</div>
+	);
+}
 
-	componentWillUnmount() {
-		if (this.props.editmode) {
-			this.pushUpdate();
-		}
-	}
+const Textfield = (
+{text,setText,label,maxlen,canEdit,edit,setEdit}
+) => {
+	let [buf,setBuf] = React.useState(undefined);
+	let id = label;
 
-	date_range_of_timeslot(i: number) {
-		let day = Math.floor(i / TIMESLOTS_DAY);
-		let slot = Math.floor(i % TIMESLOTS_DAY);
-		let t0 = new Date(this.props.t[day]);
-		t0.setHours(Math.floor(slot/TIMESLOTS_HOUR), (slot % TIMESLOTS_HOUR) * TIMESLOT_DURATION_MIN, 0);
-		let t1 = new Date(t0);
-		t1.setHours(t0.getHours() + 1);
-		return [t0, t1];
-	}
-
-	begin_drag(from: number) {
-		console.log('begin drag at', from);
-		this.setState({drag_from: from, drag_to: undefined});
-	}
-
-	update_drag(to: number) {
-		if (this.state.drag_from !== undefined) {
-			this.setState({drag_to: to});
-		}
-	}
-
-	end_drag(to: number) {
-		console.log('end drag at', to);
-		const from = this.state.drag_from;
-		if (from !== undefined) {
-			//const avail = this.state.timeslots[from] === 0 ? 1 : 0;
-			const avail = from <= to ? 1 : 0;
-			const lo = Math.min(from, to);
-			const hi = Math.max(from, to);
-			const temp:number[] = Object.assign([], this.state.timeslots);
-			for(let i=lo; i<=hi; ++i) {
-				temp[i] = avail;
-			}
-			console.log('paint from', from, 'to', to, 'with', avail);
-			this.setState({timeslots: temp, drag_from: undefined, drag_to: undefined, dirty: true});
-		} else {
-			this.setState({drag_from: undefined, drag_to: undefined});
-		}
-	}
-
-	being_painted(i: number) {
-		const from = this.state.drag_from;
-		const to = this.state.drag_to;
-		if (from === undefined || to === undefined) {
-			return false;
-		}
-		const lo = Math.min(from, to);
-		const hi = Math.max(from, to);
-		return lo <= i && i <= hi;
-	}
-
-	render_timeslot(day: number, slot: number) {
-		const i = day * TIMESLOTS_DAY + slot;
-		return (
-			<div
-				className="timeslot"
-				key={i}
-				data-timeslot={this.state.timeslots[i]}
-				data-paint={this.being_painted(i)}
+	if (edit) {
+		return (<div className="textfield">
+    		<label htmlFor={id}>{label}: </label>
+    		<input
+    			id={id} name={id} type="text"
+    			value={buf}
+    			onChange={(e) => setBuf(e.target.value)}
+    			maxLength={maxlen} />
+			<span> </span>
+    		<button
+    			onClick={(e) => {
+    				setText(buf);
+    				setEdit(false);
+    			}}
+    			>Enter</button>
+		</div>);
+	} else {
+		return (<div className="textfield">
+			<label>Username: </label>
+			<span id={id}>{text}</span>
+			<span> </span>
+			<button
 				onClick={(e) => {
-					if (this.props.editmode && e.button === 0) {
-						if (this.state.drag_from === undefined) {
-							this.begin_drag(i);
-						} else {
-							this.end_drag(i);
-						}
-					}
+					setBuf(text);
+					setEdit(true);
 				}}
-				onMouseMove={(e) => { if (this.props.editmode) this.update_drag(i) }}
-			/>
-		);
+				disabled={!canEdit}
+				>Edit</button>
+		</div>);
 	}
+};
 
-	render_hour_label(h:number, k:string) {
-		return <td key={k} className="hourlabel">{h/TIMESLOTS_HOUR}</td>;
-	}
+const ToggleBut = (
+{state,setState,label,canToggle}:{state:boolean,setState:Object,label:string,canToggle:boolean}
+) => {
+	return (
+		<button
+			onClick={(e) => setState(!state)}
+			disabled={!canToggle}>{label[state ? 1 : 0]}</button>
+	);
+};
 
-	render() {
-		const today = new Date();
-		let rows = [];
-		for(let h=FIRST_VISIBLE_TIMESLOT; h<TIMESLOTS_DAY; h+=TIMESLOTS_HOUR) {
-			let row = [];
-			for(let d=0; d<7; ++d) {
-				let row2 = [];
-				for(let f=0; f<TIMESLOTS_HOUR; ++f) {
-					row2.push(this.render_timeslot(d, h + f));
-				}
-				row.push(<td key={d} data-today={same_day(this.props.t[d], today)}>{row2}</td>);
-			}
-			rows.push(
-				<tr key={"row"+h}>
-					{this.render_hour_label(h, "hourLabelL")}
-					{row}
-					{this.render_hour_label(h, "hourLabelR")}
-				</tr>
-			);
-		}
-
-		return (
-			<div className="calendarFrame">
-				<div className="weekNr">
-					Week {week_nr(this.props.t[3])} of the colossal failure of {this.props.t[0].getFullYear()}
-				</div>
-				<table className={"calendar" + (this.props.editmode ? " edit": " view")}>
-					<thead>
-						<tr>
-							<th key="th11" className="hourlabel header"></th>
-						{
-						this.props.t.map((d) =>
-								<th
-									key={d.toISOString()}
-									data-today={same_day(d, today)}
-									className="day"
-								>{day_title_tag(d)}</th>)
-						}
-							<th key="th22" className="hourlabel header"></th>
-						</tr>
-					</thead>
-					<tbody>{ rows }</tbody>
-				</table>
-			</div>
-		);
-	}
+function hour_of_timeslot(i:number):string {
+	i %= TIMESLOTS_DAY;
+	const h = Math.floor(i / TIMESLOTS_HOUR);
+	const m = Math.floor(i % TIMESLOTS_HOUR) * TIMESLOT_DURATION_MIN;
+	return HHMM_1(h,m);
 }
 
-type CalProps = {
-	meeting_id: number;
-};
-type CalState = {
-	username?: string;
-	username_temp: string;
-	t_start: Date;
-	editmode: boolean;
-};
-class Cal extends React.Component<CalProps,CalState> {
-	pollTimer?: ReturnType<typeof setTimeout>;
-
-	constructor(props: CalProps) {
-		super(props);
-		this.state = {
-			t_start : monday(new Date()),
-			username_temp : "",
-			editmode: false,
-		};
-	}
-
-	pollTheServer() {
-		//console.log("polling now");
-	}
-
-	componentDidMount() {
-		this.pollTimer = setInterval(()=>this.pollTheServer(), 1000);
-	}
-
-	componentWillUnmount() {
-		if (this.pollTimer) {
-			clearTimeout(this.pollTimer);
-		}
-	}
-
-	set_name(n: string) {
-		console.log("set username:", n);
-		this.setState({username: n, username_temp: n});
-	}
-
-	unset_name() {
-		let n = this.state.username!;
-		this.setState({username: undefined, username_temp: n});
-	}
-
-	render_name() {
-		if (this.state.username === undefined) {
-			return (<div className="user">
-    			<label htmlFor="username">Username: </label>
-    			<input
-    				id="username" name="username" type="text"
-    				value={this.state.username_temp}
-    				onChange={(e) => this.setState({username_temp: e.target.value})}
-    				maxLength={28} />
-    			<button
-    				onClick={(e) => this.set_name(this.state.username_temp)}
-    				>Enter</button>
-			</div>);
-		} else {
-			return (<div className="user">
-				<label>Username: </label>
-				<span id="username">{this.state.username}</span>
-				<span> </span>
-				<button
-					onClick={(e) => this.unset_name()}
-    				disabled={this.state.editmode}
-					>Edit</button>
-			</div>);
-		}
-	}
-
-	render_calendar_navbuttons() {
-		return (
-    	<div>
-			<button
-				onClick={(e) => this.setState({t_start : add_days(this.state.t_start, -7)})}
-				>&lt;- Go that way</button>
-			<button
-				onClick={(e) => this.setState({t_start : monday(new Date())})}
-				>Go to present</button>
-			<button
-				onClick={(e) => this.setState({t_start : add_days(this.state.t_start, 7)})}
-				>Go this way -&gt;</button>
-		</div>
-		);
-	}
-
-	render_editbutton() {
-		const edit = this.state.editmode;
-		const label = edit ?
-					"Stop editing and submit my new timetable"
-					: "Start painting my available times on the calendar";
-		return (
-		<div>
-			<button
-				onClick={(e) => this.setState({editmode: !edit})}
-				disabled={this.state.username === undefined}
-				>{label}</button>
-		</div>
-		);
-	}
-
-	render() {
-  	  return (
-    	 <div className="calendar-main">
-    	 	{this.render_name()}
-    	 	{this.render_editbutton()}
-    	 	{this.render_calendar_navbuttons()}
-    		<Calendar t={week_days(this.state.t_start)}
-    			username={this.state.username} editmode={this.state.editmode} />
-    	 </div>
-  	  );
-  }
+function TooltipContent({i, a, b, edit}) {
+	return (<div>
+		{hour_of_timeslot(i)} - {hour_of_timeslot(i+1)}
+	</div>);
 }
 
-type AppState = {
-	meeting_id: number;
-	meeting_title?: string;
-	meeting_desc?: string;
-};
-class App extends React.Component<any,AppState> {
-	constructor(props: any) {
-		super(props);
-		const query = new URLSearchParams(document.location.search);
-		this.state = {
-			meeting_id: parseInt(query.get("meeting")!)
-		};
-	}
-	render_new() {
-		return (
+function App(props) {
+	let [user,setUser] = React.useState("test");
+	let [edit,setEdit] = React.useState(false);
+	let [editUser,setEditUser] = React.useState(false);
+	let [cursor,setCursor] = React.useState(new Date());
+	let [ts,setTs] = React.useState(new TimeslotTable());
+	let [hoverX,setHoverX] = React.useState([-1,-1,-1,undefined,undefined]);
+
+	return (
+		<div className="App">
 			<div>
-				<div>
-					<label htmlFor="meeting_title">Title: </label>
-					<input type="text" maxLength={200} name="meeting_title" id="meeting_title" />
+				<div className="tooltip"
+					style={{
+						display: hoverX[0] < 0 ? "none" : "block",
+						position: "absolute",
+						left: hoverX[1],
+						top: hoverX[2],
+					}}>
+					{TooltipContent({i:hoverX[0], a:hoverX[3], b:hoverX[4], edit:edit})}
 				</div>
-				<div>
-					<label htmlFor="meeting_desc">Description: </label>
-					<input type="text" maxLength={200} name="meeting_desc" id="meeting_desc" />
+				<div className="calendar-main">
+					{Textfield({text:user,setText:setUser,label:"Username",maxlen:28,canEdit:!edit,edit:editUser,setEdit:setEditUser})}
+					{WeekNavButs({cursor:cursor,setCursor:setCursor})}
+					{Hourgrid({cursor:cursor,edit:edit,
+						paint_cells:(from,to,color) => {
+							setTs(ts.paint(from, to, color));
+						},
+						cell_color:(i) => ts.ts[i],
+						hover_at: (i,x,y,a,b) => setHoverX([i,x,y,a,b]),
+					})}
+					{ToggleBut({state:edit,setState:setEdit,label:[
+						"Start painting my available times on the calendar",
+						"Stop editing and submit my new timetable",
+					], canToggle: !editUser})}
 				</div>
-				<button>Create meeting</button>
 			</div>
-		);
-	}
-	render() {
-  	  return (
-    	 <div className="App">
-    	 	{
-    	 		this.state.meeting_id === NaN
-    	 		? this.render_new()
-    	 		: <Cal meeting_id={this.state.meeting_id!} />
-    	 	}
-    	 </div>
-  	  );
-  }
+		</div>
+	);
 }
 
 export default App;
