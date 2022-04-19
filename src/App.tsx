@@ -50,13 +50,17 @@ function day_title(da: Date):string {
 	return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][da.getDay()];
 }
 
-function day_title_tag(da: Date) {
-	let wd = day_title(da);
+function DDMM(da: Date):string {
 	let mm = 1 + da.getMonth();
 	let dd = da.getDate();
+	return `${dd}.${mm}.`;
+}
+
+function day_title_tag(da: Date) {
+	let wd = day_title(da);
 	return (<div>
 		<div>{wd} </div>
-		<div>{dd}.{mm}.</div>
+		<div>{DDMM(da)}</div>
 	</div>);
 }
 
@@ -292,14 +296,17 @@ const Hourgrid = (
 
 function print_intervals(tv: UserAvailabT[]) {
 	for(const t of tv) {
-		console.log(`${day_title(t.from)}: ${HHMM(t.from)} .. ${HHMM(t.to)}  status=${t.status}`);
+		const f = t.from;
+		console.log(`${DDMM(f)} ${day_title(f)}: ${HHMM(f)} .. ${HHMM(t.to)}  status=${t.status}`);
 	}
 }
 
 class TimeslotTable {
+	start: Date;
 	ts: number[];
 
-	constructor() {
+	constructor(start:Date) {
+		this.start = start;
 		this.ts = Array(TIMESLOTS_WEEK).fill(0);
 	}
 
@@ -311,23 +318,21 @@ class TimeslotTable {
 		return c;
 	}
 
-	to_intervals(t_start:Date[]): UserAvailabT[] {
-		let tv:UserAvailabT[] = [];
-		for(let d=0; d<7; ++d) {
-			const n = TIMESLOTS_DAY;
-			const f = FIRST_VISIBLE_TIMESLOT;
-			tv = tv.concat(timeslots_to_ranges(add_min(t_start[d], f*TIMESLOT_DURATION_MIN),
-				this.state.timeslots.slice(d*n+f, (d+1)*n)));
+	to_intervals(): UserAvailabT[] {
+		// user cant see earliest hours, so blank them out here to prevent unintended availability
+		let ts1:number[] = [];
+		for(let i=0; i<this.ts.length; ++i) {
+			ts1[i] = i < FIRST_VISIBLE_TIMESLOT ? 0 : this.ts[i];
 		}
-		return tv;
+		return timeslots_to_ranges(this.start, ts1);
 	}
 
-	from_intervals(t_monday:Date, tv:UserAvailabT[]) {
-		ranges_to_timeslots(t_monday, this.ts, tv);
+	from_intervals(tv:UserAvailabT[]) {
+		ranges_to_timeslots(this.start, this.ts, tv);
 	}
 
 	copy():TimeslotTable {
-		let t = new TimeslotTable();
+		let t = new TimeslotTable(this.start);
 		for(let i=0; i<this.ts.length; ++i) { t.ts[i] = this.ts[i]; }
 		return t;
 	}
@@ -425,8 +430,35 @@ function App(props) {
 	let [edit,setEdit] = React.useState(false);
 	let [editUser,setEditUser] = React.useState(false);
 	let [cursor,setCursor] = React.useState(new Date());
-	let [ts,setTs] = React.useState(new TimeslotTable());
 	let [hoverX,setHoverX] = React.useState([-1,-1,-1,undefined,undefined]);
+
+	let [tsCache,setTsCache] = React.useState(new Map<string,TimeslotTable>());
+	const week_start = monday(cursor);
+	const week_id = week_start.toISOString();
+	let setTs = (t) => {
+		tsCache.set(week_id, t);
+		setTsCache(tsCache);
+	};
+	let ts = tsCache.get(week_id);
+	if (ts === undefined) {
+		ts = new TimeslotTable(week_start);
+		setTs(ts);
+	}
+
+	function beginEdit() {
+		// populate tsCache with stuff from the server
+		console.log("begin editing");
+	}
+
+	function endEdit() {
+		console.log("end editing");
+		let tv:UserAvailabT[] = [];
+		for(const t of tsCache.values()) {
+			tv = tv.concat(t.to_intervals());
+		}
+		print_intervals(tv);
+		//setTsCache(new Map<string,TimeslotTable>());
+	}
 
 	return (
 		<div className="App">
@@ -450,10 +482,22 @@ function App(props) {
 						cell_color:(i) => ts.ts[i],
 						hover_at: (i,x,y,a,b) => setHoverX([i,x,y,a,b]),
 					})}
-					{ToggleBut({state:edit,setState:setEdit,label:[
-						"Start painting my available times on the calendar",
-						"Stop editing and submit my new timetable",
-					], canToggle: !editUser})}
+
+					<button
+						onClick={(e) => {
+							if (edit) {
+								endEdit();
+							} else {
+								beginEdit();
+							}
+							setEdit(!edit);
+						}}
+						disabled={editUser}>
+						{[
+							"Start painting my available times on the calendar",
+							"Stop editing and submit my new timetable",
+						][edit?1:0]}
+					</button>
 				</div>
 			</div>
 		</div>
