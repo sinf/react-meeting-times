@@ -483,7 +483,16 @@ function App(props) {
 						hover_at: (i,x,y,a,b) => setHoverX([i,x,y,a,b]),
 					})}
 
+					{edit ? <div><button
+						className="clear-timetable"
+						onClick={(e) => {
+							setTsCache(new Map<string,TimeslotTable>());
+						}}
+						> Clear my timetable
+					</button></div> : undefined}
+
 					<button
+						className="edit-calendar"
 						onClick={(e) => {
 							if (edit) {
 								endEdit();
