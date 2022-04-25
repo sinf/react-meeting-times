@@ -8,15 +8,51 @@ const TIMESLOTS_WEEK = 7*TIMESLOTS_DAY;
 const TIMESLOT_DURATION_MIN = 60/TIMESLOTS_HOUR;
 const FIRST_VISIBLE_TIMESLOT = 6*TIMESLOTS_HOUR;
 
-class DummyBackend {
+type CalendarProps = {
+	t_initial: Date;
+	username?: string;
+};
+type CalendarState = {
+	t_cursor:Date;
+	t: Date[];
+	editmode: boolean;
+	timeslots: number[]; // availability status for the whole week
+	tv: UserAvailab[];
+	users: string[][]; // list of users for each timeslot
+	drag_from?: number;
+	drag_to?: number;
+	dirty: boolean;
+};
+
+type Meeting = {
+	id: number;
+	title: string;
+	descr: string;
+	from: Date;
+	to: Date;
+};
+
+type UserAvailab = {
+	meeting: number;
+	username: string;
+	T: UserAvailabT[];
+};
+
+type UserAvailabT = {
+	status: number;
+	from: Date;
+	to: Date;
+};
+
+
+class MeetingData {
 	meeting: Meeting;
 	users: Map<string, UserAvailabT[]>;
 
-	constructor() {
-		console.log("backend: constructor");
+	constructor(id: number) {
 		let t0 = monday(new Date());
 		this.meeting = {
-			id: 123,
+			id: id,
 			title: "example",
 			descr: "pls pick times on weekend",
 			from: add_days(t0, -14),
@@ -25,8 +61,14 @@ class DummyBackend {
 		this.users = new Map<string, UserAvailabT[]>();
 	}
 
-	fetch(): UserAvailab[] {
-		console.log("backend: fetch all");
+	copy():MeetingData {
+		let m = new MeetingData(this.meeting.id);
+		m.meeting = this.meeting;
+		m.users = new Map <string, UserAvailab[]>(this.users);
+		return m;
+	}
+
+	get_ua():UserAvailab[] {
 		let ua:UserAvailab[] = [];
 		for(let [name, t] of this.users.entries()) {
 			ua.push({
@@ -38,13 +80,33 @@ class DummyBackend {
 		return ua;
 	}
 
-	send(user: string, t: UserAvailabT[]) {
-		console.log("backend: update user ", user);
-		this.users[user] = t;
+	print() {
+		console.log("Meeting", this.meeting.id);
+		for(let [name, t] of this.users.entries()) {
+			console.log("Available times for user", name);
+			print_intervals(t);
+			console.log();
+		}
+		console.log();
 	}
 }
 
-let dummy_backend = new DummyBackend();
+let dummy_backend_data:MeetingData = new MeetingData(123);
+
+async function fetch_meeting(meeting_id:number):MeetingData {
+	console.log("start fetching meeting", meeting_id);
+	return new Promise(f => {
+		setTimeout(() => {
+			f(dummy_backend_data);
+			console.log('got the meeting');
+		}, 3000);
+	});
+}
+
+function update_meeting_t(meeting_id:number, u:UserAvailab) {
+	console.log("update meeting", meeting_id, "time for user", u.username, "rows:", u.T.length);
+	dummy_backend_data.users[u.username] = u.T;
+}
 
 function day_title(da: Date):string {
 	return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][da.getDay()];
@@ -111,47 +173,11 @@ function get_week_days(t: Date):Date[] {
 			add_days(m, 4), add_days(m, 5), add_days(m, 6)];
 }
 
-type CalendarProps = {
-	t_initial: Date;
-	username?: string;
-};
-type CalendarState = {
-	t_cursor:Date;
-	t: Date[];
-	editmode: boolean;
-	timeslots: number[]; // availability status for the whole week
-	tv: UserAvailab[];
-	users: string[][]; // list of users for each timeslot
-	drag_from?: number;
-	drag_to?: number;
-	dirty: boolean;
-};
-
 function add_min(t: Date, m: number): Date {
 	let t1 = new Date(t);
 	t1.setMinutes(t.getMinutes() + m);
 	return t1;
 }
-
-type Meeting = {
-	id: number;
-	title: string;
-	descr: string;
-	from: Date;
-	to: Date;
-};
-
-type UserAvailab = {
-	meeting: number;
-	username: string;
-	T: UserAvailabT[];
-};
-
-type UserAvailabT = {
-	status: number;
-	from: Date;
-	to: Date;
-};
 
 function drop_between_t(uu: UserAvailabT[], from: Date, to:Date): UserAvailabT[] {
 	return uu.filter((u) => !(u.from <= to && u.to >= from));
@@ -445,11 +471,29 @@ They will be painted as "unavailable" if the last clicked time is before the ini
 `;
 
 function App(props) {
+	const VIEW = 0;
+	const EDIT_NAME = 1;
+	const EDIT_TIME = 2;
+	const SEND_TIME = 3;
+	let [state, setState] = React.useState(VIEW);
+
 	let [user,setUser] = React.useState("test");
-	let [edit,setEdit] = React.useState(false);
-	let [editUser,setEditUser] = React.useState(false);
 	let [cursor,setCursor] = React.useState(new Date());
 	let [hoverX,setHoverX] = React.useState([-1,-1,-1,undefined,undefined]);
+
+	let [me,setMe] = React.useState(new MeetingData(123));
+	let [pollnr,setPollnr] = React.useState(0);
+
+	let poll_me = () => {
+		const a = async () => {
+			const x = await fetch_meeting(me.meeting.id);
+			setMe(x);
+			x.print();
+		};
+		a();
+	};
+
+	React.useEffect(poll_me, [pollnr]);
 
 	let [tsCache,setTsCache] = React.useState(new Map<string,TimeslotTable>());
 	const week_start = monday(cursor);
@@ -465,22 +509,32 @@ function App(props) {
 	}
 
 	let uat:UserAvailabT[] = [];
-	if (edit) {
+	if (state == EDIT_TIME) {
 		// discrete timeslots -> list of start/stop ranges
 		for(const t of tsCache.values()) {
 			uat = uat.concat(t.to_intervals());
 		}
 		uat = uat.sort((a,b) => a.from-b.from);
 	}
+	let send_uat = () => {
+		update_meeting_t(me.meeting.id, {
+			meeting: me.meeting.id, username: user, T: uat
+		});
+		setPollnr(pollnr + 1);
+	};
 
 	function beginEdit() {
-		// populate tsCache with stuff from the server
+		// todo: populate tsCache with stuff from the server
+		setState(EDIT_TIME);
 		console.log("begin editing");
 	}
 
 	function endEdit() {
+		setState(VIEW);
 		console.log("end editing");
+		//setState(SEND_TIME);
 		//setTsCache(new Map<string,TimeslotTable>());
+		send_uat();
 	}
 
 	return (
@@ -493,12 +547,14 @@ function App(props) {
 						left: hoverX[1],
 						top: hoverX[2],
 					}}>
-					{TooltipContent({i:hoverX[0], a:hoverX[3], b:hoverX[4], edit:edit})}
+					{TooltipContent({i:hoverX[0], a:hoverX[3], b:hoverX[4], edit:state==EDIT_TIME})}
 				</div>
 				<div className="calendar-main">
-					{Textfield({text:user,setText:setUser,label:"Username",maxlen:28,canEdit:!edit,edit:editUser,setEdit:setEditUser})}
+					{Textfield({text:user,setText:setUser,label:"Username",maxlen:28,
+						canEdit:(state != EDIT_NAME && state == VIEW),edit:(state == EDIT_NAME),
+						setEdit:(b) => setState(b ? EDIT_NAME : VIEW)})}
 					{WeekNavButs({cursor:cursor,setCursor:setCursor})}
-					{Hourgrid({cursor:cursor,edit:edit,
+					{Hourgrid({cursor:cursor,edit:(state == EDIT_TIME),
 						paint_cells:(from,to,color) => {
 							setTs(ts.paint(from, to, color));
 						},
@@ -506,7 +562,7 @@ function App(props) {
 						hover_at: (i,x,y,a,b) => setHoverX([i,x,y,a,b]),
 					})}
 
-					{edit ? <div><button
+					{(state == EDIT_TIME) ? <div><button
 						className="clear-timetable"
 						onClick={(e) => {
 							setTsCache(new Map<string,TimeslotTable>());
@@ -517,21 +573,20 @@ function App(props) {
 					<button
 						className="edit-calendar"
 						onClick={(e) => {
-							if (edit) {
+							if (state == EDIT_TIME) {
 								endEdit();
 							} else {
 								beginEdit();
 							}
-							setEdit(!edit);
 						}}
-						disabled={editUser}>
+						disabled={state != EDIT_TIME && state != VIEW}>
 						{[
 							"Start painting my available times on the calendar",
 							"Stop editing and submit my new timetable",
-						][edit?1:0]}
+						][state == EDIT_TIME ? 1:0]}
 					</button>
 
-					{ !edit ? undefined :
+					{ state != EDIT_TIME ? undefined :
 						<div className="time-interval-list">
 							<div className="title">{uat.length > 0 ? "I'm available on" : howto}</div>
 							{
