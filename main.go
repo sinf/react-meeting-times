@@ -1,5 +1,19 @@
 package main
 
+/* --- stupid simple API ---
+
+	POST /create       body={id,title,descr,from,to}
+		create a meeting with given parameters
+
+	GET  /meeting/{id}
+		get all stuff related to meeting
+
+	POST /update       body={meeting,username,t:array of {status,from,to}}
+		overwrite all time ranges of one user in a meeting
+
+*/
+
+
 import (
    "database/sql"
    "encoding/json"
