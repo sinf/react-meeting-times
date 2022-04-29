@@ -8,11 +8,28 @@ const TIMESLOTS_WEEK = 7*TIMESLOTS_DAY;
 const TIMESLOT_DURATION_MIN = 60/TIMESLOTS_HOUR;
 const FIRST_VISIBLE_TIMESLOT = 6*TIMESLOTS_HOUR;
 
-type CalendarProps = {
+function make_backend_url(endpoint: string) {
+	return 'http://localhost:9080/' + endpoint;
+}
+
+interface CalendarProps {
 	t_initial: Date;
 	username?: string;
-};
-type CalendarState = {
+}
+
+interface UserAvailabT {
+	status: number;
+	from: Date;
+	to: Date;
+}
+
+interface UserAvailab {
+	meeting: number;
+	username: string;
+	T: UserAvailabT[];
+}
+
+interface CalendarState {
 	t_cursor:Date;
 	t: Date[];
 	editmode: boolean;
@@ -22,28 +39,20 @@ type CalendarState = {
 	drag_from?: number;
 	drag_to?: number;
 	dirty: boolean;
-};
+}
 
-type Meeting = {
+interface Meeting {
 	id: number;
 	title: string;
 	descr: string;
 	from: Date;
 	to: Date;
-};
+}
 
-type UserAvailab = {
-	meeting: number;
-	username: string;
-	T: UserAvailabT[];
-};
-
-type UserAvailabT = {
-	status: number;
-	from: Date;
-	to: Date;
-};
-
+interface MeetingResponse {
+	meeting: Meeting;
+	users: UserAvailab[];
+}
 
 class MeetingData {
 	meeting: Meeting;
@@ -59,6 +68,27 @@ class MeetingData {
 			to: add_days(t0, 21),
 		};
 		this.users = new Map<string, UserAvailabT[]>();
+	}
+
+	active_weeks_of_user(user: string): string[] {
+		let w = new Set<string>();
+		if (this.users[user]) {
+			for(const tv of this.users[user]) {
+				w.add(monday(tv.from).toISOString());
+			}
+		}
+		return w.values();
+	}
+
+	// get timeslot table of user for week
+	gtstoufw(user: string, from:Date): TimeslotTable {
+		let tab:TimeslotTable = new TimeslotTable(from);
+		if (this.users[user]) {
+			tab.from_intervals(this.users[user]);
+		} else {
+			console.log('user not found', user);
+		}
+		return tab;
 	}
 
 	copy():MeetingData {
@@ -89,23 +119,82 @@ class MeetingData {
 		}
 		console.log();
 	}
+
+	eat(m: MeetingResponse) {
+		this.meeting = {...m.meeting, from:new Date(m.meeting.from), to:new Date(m.meeting.to)};
+		this.users = new Map<string, UserAvailabT[]>();
+		if (m.users) {
+			for(const ua of m.users) {
+				this.users[ua.username] = ua.T.map((x) => {
+					return {...x, from: new Date(x.from), to: new Date(x.to)};
+				});
+			}
+		} else {
+			console.log('MeetingResponse has no users :(');
+		}
+	}
 }
 
-let dummy_backend_data:MeetingData = new MeetingData(123);
-
-async function fetch_meeting(meeting_id:number):MeetingData {
-	console.log("start fetching meeting", meeting_id);
-	return new Promise(f => {
-		setTimeout(() => {
-			f(dummy_backend_data);
-			console.log('got the meeting');
-		}, 3000);
-	});
+async function check_request_ok(x,setErr) {
+	if (!x.ok) {
+		let t:string = await x.text();
+		t = "got non-OK response: " + t;
+		setErr(t);
+		throw new Error(t);
+	}
 }
 
-function update_meeting_t(meeting_id:number, u:UserAvailab) {
-	console.log("update meeting", meeting_id, "time for user", u.username, "rows:", u.T.length);
-	dummy_backend_data.users[u.username] = u.T;
+async function get_newly_created_meeting(x,setErr):MeetingData {
+	check_request_ok(x,setErr);
+	const j:Meeting = JSON.parse(await x.text());
+	let me = new MeetingData(j.id);
+	me.meeting = j;
+	return me;
+}
+
+async function create_meeting(m:Meeting, setErr):MeetingData {
+	const u = make_backend_url('create');
+	const b = JSON.stringify(m);
+	console.log("try to create meeting", u);
+	console.log(b);
+	setErr('requested creation of new meeting');
+	return fetch(u, {method:'POST', body: b})
+		.then((x) => get_newly_created_meeting(x,setErr))
+		.catch(err => {
+			console.log('oopsy when creating meeting', m.id+':\n', err);
+		});
+}
+
+async function parsulate_json_meeting_get_respose_function_thingy_123(x,setErr):MeetingData {
+	check_request_ok(x,setErr);
+	const j:MeetingResponse = JSON.parse(await x.text());
+	let me = new MeetingData(j.meeting.id);
+	me.eat(j);
+	return me;
+}
+
+function fetch_meeting(meeting_id:number, setErr):MeetingData {
+	let u = make_backend_url('meeting/' + meeting_id);
+	console.log("start fetching meeting", u);
+	setErr('requested data');
+	return fetch(u)
+		.then((x) => parsulate_json_meeting_get_respose_function_thingy_123(x,setErr))
+		.catch(err => {
+			console.log('oopsy w/ meeting', meeting_id+':\n', err);
+		});
+}
+
+function update_meeting_t(ua:UserAvailab, setErr):MeetingData {
+	const id = ua.meeting;
+	const u = make_backend_url('update');
+	const b = JSON.stringify(ua);
+
+	console.log("update meeting", u, 'id:', id, "user:", ua.username, "rows:", ua.T.length);
+	setErr('push update');
+
+	return fetch(u, {method:'POST', body: b})
+		.then((x) => parsulate_json_meeting_get_respose_function_thingy_123(x,setErr))
+		.catch(err => console.log('oopsy w/ meeting', id+':\n', err));
 }
 
 function day_title(da: Date):string {
@@ -138,6 +227,10 @@ function HHMM(da: Date):string {
 	return HHMM_1(da.getHours(), da.getMinutes());
 }
 
+function HHMMSS(da: Date):string {
+	return HHMM(da) + ':' + padzero2(da.getSeconds());
+}
+
 function monday(t: Date): Date {
 	t = new Date(t);
 	t.setDate( 1 - t.getDay() + t.getDate() );
@@ -157,7 +250,7 @@ function same_day(a: Date, b: Date): boolean {
 		&& a.getDate() == b.getDate();
 }
 
-function week_nr(date1: Date) {
+function week_nr(date1: Date):number {
     function serial(days:number) { return 86400000*days; }
     function dateserial(year:number,month:number,day:number) { return (new Date(year,month-1,day).valueOf()); }
     function weekday(date:number) { return (new Date(date)).getDay()+1; }
@@ -215,8 +308,10 @@ function calc_timeslot(t_start: Date, t: Date) {
 
 function ranges_to_timeslots(t_start: Date, timeslots: number[], time_ranges: UserAvailabT[]) {
 	for(const t of time_ranges) {
-		let i0 = Math.max(calc_timeslot(t_start, t.from), 0);
-		let i1 = Math.min(calc_timeslot(t_start, t.to), timeslots.length + 1);
+		let i0 = calc_timeslot(t_start, t.from);
+		let i1 = calc_timeslot(t_start, t.to);
+		i0 = Math.max(i0, 0);
+		i1 = Math.min(i1, timeslots.length + 1);
 		for(let i=i0; i<i1; ++i) {
 			timeslots[i] = t.status;
 		}
@@ -481,20 +576,30 @@ function App(props) {
 	let [cursor,setCursor] = React.useState(new Date());
 	let [hoverX,setHoverX] = React.useState([-1,-1,-1,undefined,undefined]);
 
-	let [me,setMe] = React.useState(new MeetingData(123));
+	let [me,setMe] = React.useState(new MeetingData(1));
 	let [pollnr,setPollnr] = React.useState(0);
 
+	let [statusMsg,setStatusMsg] = React.useState("");
+	let setErr = (x) => setStatusMsg('['+HHMMSS(new Date())+'] '+x);
+	let setOk = setErr;
+
+	const me_id = 1;//me.meeting.id;
 	let poll_me = () => {
 		const a = async () => {
-			const x = await fetch_meeting(me.meeting.id);
-			setMe(x);
-			x.print();
+			var md:MeetingData = await fetch_meeting(me_id, setErr);
+			if (md!==undefined) {
+				setMe(md);
+				setOk('updated meeting data');
+				md.print();
+			}
 		};
 		a();
 	};
 
+	// fetch new data whenever pollnr is incremented setPollnr(pollnr + 1);
 	React.useEffect(poll_me, [pollnr]);
 
+	// have one TimeslotTable for each week.
 	let [tsCache,setTsCache] = React.useState(new Map<string,TimeslotTable>());
 	const week_start = monday(cursor);
 	const week_id = week_start.toISOString();
@@ -507,6 +612,7 @@ function App(props) {
 		ts = new TimeslotTable(week_start);
 		setTs(ts);
 	}
+	let [tsDirty,setTsDirty] = React.useState(false);
 
 	let uat:UserAvailabT[] = [];
 	if (state == EDIT_TIME) {
@@ -516,25 +622,43 @@ function App(props) {
 		}
 		uat = uat.sort((a,b) => a.from-b.from);
 	}
-	let send_uat = () => {
-		update_meeting_t(me.meeting.id, {
-			meeting: me.meeting.id, username: user, T: uat
-		});
-		setPollnr(pollnr + 1);
-	};
 
 	function beginEdit() {
-		// todo: populate tsCache with stuff from the server
+		setTsDirty(false);
+
+		// convert current users's time ranges into timeslots for each week
+		let temp = new Map<string,TimeslotTable>();
+		for(const w of me.active_weeks_of_user(user)) {
+			temp.set(w, me.gtstoufw(user, new Date(w)));
+		}
+		setTsCache(temp);
+
 		setState(EDIT_TIME);
 		console.log("begin editing");
 	}
 
 	function endEdit() {
 		setState(VIEW);
-		console.log("end editing");
 		//setState(SEND_TIME);
-		//setTsCache(new Map<string,TimeslotTable>());
-		send_uat();
+		if (tsDirty) {
+			console.log("end editing and submit changes");
+
+			update_meeting_t({meeting: me_id, username: user, T: uat}, setErr)
+			.then((md:MeetingData) => {
+				if (md !== undefined) {
+					setMe(md);
+					setOk('updated meeting data w/ our my edits');
+					md.print();
+				}
+			});
+		} else {
+			console.log("end editing, no changes");
+		}
+	}
+
+	function cancelEdit() {
+		setState(VIEW);
+		console.log("cancel editing, dirty:", tsDirty);
 	}
 
 	return (
@@ -557,6 +681,7 @@ function App(props) {
 					{Hourgrid({cursor:cursor,edit:(state == EDIT_TIME),
 						paint_cells:(from,to,color) => {
 							setTs(ts.paint(from, to, color));
+							setTsDirty(true);
 						},
 						cell_color:(i) => ts.ts[i],
 						hover_at: (i,x,y,a,b) => setHoverX([i,x,y,a,b]),
@@ -570,7 +695,7 @@ function App(props) {
 						> Clear my timetable
 					</button></div> : undefined}
 
-					<button
+					<div><button
 						className="edit-calendar"
 						onClick={(e) => {
 							if (state == EDIT_TIME) {
@@ -579,12 +704,27 @@ function App(props) {
 								beginEdit();
 							}
 						}}
-						disabled={state != EDIT_TIME && state != VIEW}>
+						disabled={state != EDIT_TIME && state != VIEW}
+						>
 						{[
 							"Start painting my available times on the calendar",
 							"Stop editing and submit my new timetable",
 						][state == EDIT_TIME ? 1:0]}
-					</button>
+					</button></div>
+
+					<div><button
+						onClick={(e) => {
+							if (state == EDIT_TIME) {
+								cancelEdit();
+							}
+						}}
+						style={{visibility:state == EDIT_TIME ? "visible":"hidden"}}
+						>Cancel and discard edits
+					</button></div>
+
+					<div>
+						<span className="status-msg">{statusMsg}</span>
+					</div>
 
 					{ state != EDIT_TIME ? undefined :
 						<div className="time-interval-list">
