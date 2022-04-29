@@ -589,6 +589,7 @@ function App(props) {
 			var md:MeetingData = await fetch_meeting(me_id, setErr);
 			if (md!==undefined) {
 				setMe(md);
+				resetTsCache();
 				setOk('updated meeting data');
 				md.print();
 			}
@@ -623,16 +624,18 @@ function App(props) {
 		uat = uat.sort((a,b) => a.from-b.from);
 	}
 
-	function beginEdit() {
+	function resetTsCache() {
 		setTsDirty(false);
-
 		// convert current users's time ranges into timeslots for each week
 		let temp = new Map<string,TimeslotTable>();
 		for(const w of me.active_weeks_of_user(user)) {
 			temp.set(w, me.gtstoufw(user, new Date(w)));
 		}
 		setTsCache(temp);
+	}
 
+	function beginEdit() {
+		resetTsCache();
 		setState(EDIT_TIME);
 		console.log("begin editing");
 	}
@@ -641,6 +644,7 @@ function App(props) {
 		setState(VIEW);
 		//setState(SEND_TIME);
 		if (tsDirty) {
+			setTsDirty(false);
 			console.log("end editing and submit changes");
 
 			update_meeting_t({meeting: me_id, username: user, T: uat}, setErr)
@@ -657,8 +661,9 @@ function App(props) {
 	}
 
 	function cancelEdit() {
-		setState(VIEW);
 		console.log("cancel editing, dirty:", tsDirty);
+		setState(VIEW);
+		setTsDirty(false);
 	}
 
 	return (
@@ -687,13 +692,23 @@ function App(props) {
 						hover_at: (i,x,y,a,b) => setHoverX([i,x,y,a,b]),
 					})}
 
-					{(state == EDIT_TIME) ? <div><button
+					{(state == EDIT_TIME) ? <div>
+						<div><button
 						className="clear-timetable"
 						onClick={(e) => {
 							setTsCache(new Map<string,TimeslotTable>());
 						}}
 						> Clear my timetable
-					</button></div> : undefined}
+						</button></div>
+
+						<div><button
+						className="reset-timetable"
+						onClick={(e) => resetTsCache()}
+						disabled={!tsDirty}
+						> Reset new changes
+						</button></div>
+
+					</div> : undefined}
 
 					<div><button
 						className="edit-calendar"
@@ -704,7 +719,8 @@ function App(props) {
 								beginEdit();
 							}
 						}}
-						disabled={state != EDIT_TIME && state != VIEW}
+						disabled={(state != EDIT_TIME && state != VIEW)
+							|| (state == EDIT_TIME && !tsDirty) }
 						>
 						{[
 							"Start painting my available times on the calendar",
@@ -713,13 +729,14 @@ function App(props) {
 					</button></div>
 
 					<div><button
+						className="discard"
 						onClick={(e) => {
 							if (state == EDIT_TIME) {
 								cancelEdit();
 							}
 						}}
 						style={{visibility:state == EDIT_TIME ? "visible":"hidden"}}
-						>Cancel and discard edits
+						>Stop editing and discard my edits
 					</button></div>
 
 					<div>
