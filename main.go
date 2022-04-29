@@ -4,12 +4,16 @@ package main
 
 	POST /create       body={id,title,descr,from,to}
 		create a meeting with given parameters
+		=> {id,title,descr,from,to}
 
 	GET  /meeting/{id}
 		get all stuff related to meeting
+		=> {meeting:{id,title,descr,from,to}, users[]:{meeting,username,t[]:{status,from,to}}}
 
-	POST /update       body={meeting,username,t:array of {status,from,to}}
+	POST /update       body={meeting,username,t[]:{status,from,to}}
 		overwrite all time ranges of one user in a meeting
+		returns new state of the meeting after applying the requested change 
+		=> {meeting:{id,title,descr,from,to}, users[]:{meeting,username,t[]:{status,from,to}}}
 
 */
 
@@ -51,7 +55,7 @@ type UserAvailabT struct {
 type UserAvailab struct {
 	Meeting int64 `json:"meeting"`
 	Username string `json:"username"`
-	T [] UserAvailabT `json:"t"`
+	T [] UserAvailabT `json:"T"`
 }
 
 type MeetingResponse struct {
@@ -162,13 +166,13 @@ func (a *App) GetMeetingR(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id_s := params["id"]
 	if id_s == "" {
-		http.Error(w, "you idiot! id is empty", 404)
+		http.Error(w, "you idiot! id is empty", 400)
 		return
 	}
 
 	id,err := strconv.ParseInt(id_s, 10, 64)
 	if err != nil || id < 0 {
-		http.Error(w, "you idiot! id is not valid", 404)
+		http.Error(w, "you idiot! id is not valid", 400)
 		return
 	}
 
@@ -190,7 +194,7 @@ func (a *App) CreateMeeting(Title, Descr, Ts_from, Ts_to string) int64 {
 }
 
 func checkStr(w http.ResponseWriter, what string, s string, min_len int, max_len int) bool {
-	e := 404
+	e := 400
 	if len(s) < min_len {
 		http.Error(w, fmt.Sprintf("you idiot! %s is too short or empty", what), e)
 		return true
@@ -209,7 +213,7 @@ func (a *App) CreateMeetingR(w http.ResponseWriter, r *http.Request) {
 	err = j.Decode(&m)
 
 	if err != nil {
-		http.Error(w, "you idiot! POST body json can't be parsed!", 404)
+		http.Error(w, "you idiot! POST body json can't be parsed!", 400)
 		return
 	}
 
@@ -234,21 +238,20 @@ func (a *App) CreateMeetingR(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a* App) SetUserAvail(ua *UserAvailab) {
+	// todo return error to caller if meeting doesnt exist
 
 	tx, err := a.db.Begin()
 	checkErr(err)
 
-	_, err = tx.Exec("DELETE FROM user_availab WHERE meeting = ? AND username = ?", ua.Meeting, ua.Username)
+	_, err = tx.Exec("DELETE FROM user_availab WHERE meeting = $1 AND username = $2", ua.Meeting, ua.Username)
 	checkErr(err)
 
-	st, err := tx.Prepare("INSERT INTO user_availab (meeting,ts_from,ts_to,username,status) VALUES (?,?,?,?,?)")
+	st, err := tx.Prepare("INSERT INTO user_availab (meeting,ts_from,ts_to,username,status) VALUES ($1,$2,$3,$4,$5)")
 	checkErr(err)
-
 	for _, t := range ua.T {
 		_, err := st.Exec(ua.Meeting, t.Ts_from, t.Ts_to, ua.Username, t.Status)
 		checkErr(err)
 	}
-
 	checkErr(st.Close())
 	checkErr(tx.Commit())
 }
@@ -259,15 +262,22 @@ func (a* App) SetUserAvailR(w http.ResponseWriter, r *http.Request) {
 	err := j.Decode(&ua)
 
 	if err != nil {
-		http.Error(w, "you idiot! POST body json can't be parsed!", 404)
+		http.Error(w, "you idiot! POST body json can't be parsed!", 400)
 		return
 	}
 
 	if len(ua.Username) < 1 || len(ua.Username) > 28 {
-		http.Error(w, "you idiot! username is not valid", 404)
+		http.Error(w, "you idiot! username is not valid", 400)
 		return
 	}
 
 	a.SetUserAvail(&ua)
+
+	mr := a.GetMeeting(ua.Meeting)
+	if (mr != nil) {
+		json.NewEncoder(w).Encode(mr)
+	} else {
+		http.Error(w, "meeting does not exist", 404)
+	}
 }
 
