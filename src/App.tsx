@@ -235,7 +235,7 @@ function HHMMSS(da: Date):string {
 
 function monday(t: Date): Date {
 	t = new Date(t);
-	t.setDate( 1 - t.getDay() + t.getDate() );
+	t.setDate(t.getDate() + [-6,0,-1,-2,-3,-4,-5][t.getDay()]);
 	t.setHours(0,0,0,0);
 	return t;
 }
