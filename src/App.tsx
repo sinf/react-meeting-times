@@ -511,7 +511,7 @@ class TimeslotTable2 {
 		for (const [k,v] of this.ts[i]) {
 			tmp.push(<li key={k}>{k}</li>);
 		}
-		return <ul>{tmp}</ul>;
+		return <ul className="inline-list userNameList">{tmp}</ul>;
 	}
 
 	enum_users_range(from:number, to:number, staTus:number):string[] {
@@ -691,13 +691,16 @@ function App(props) {
 		uat = uat.sort((a,b) => a.from-b.from);
 	}
 
+	let [inspectCells,setInspectCells] = React.useState([-1,-1]);
+	let inspected_users:string[] = [];
+
 	// used while not in edit mode. each users name and status inserted into each grid cell
 	let ts2 = [];
 	if (state != EDIT_TIME) {
 		ts2 = new TimeslotTable2(week_start);
 		ts2.from_meeting(me);
+		inspected_users = ts2.enum_users_range(inspectCells[0], inspectCells[1], 1);
 	}
-	let [inspectCells,setInspectCells] = React.useState([-1,-1]);
 
 	function setCursor(x) {
 		setInspectCells([-1,-1]);
@@ -709,7 +712,7 @@ function App(props) {
 	function TooltipContent({i, a, b}) {
 		const edit = state == EDIT_TIME;
 		return (<div className="tooltip-content">
-			<div>{hour_of_timeslot(i)} - {hour_of_timeslot(i+1)}</div>
+			<div className="title">{hour_of_timeslot(i)} - {hour_of_timeslot(i+1)}</div>
 			{edit ? undefined : <div>
 				Users: {ts2.num_users(i)}
 				{ts2.enum_users_ul(i)}
@@ -870,14 +873,15 @@ function App(props) {
 						:
 						inspectCells[0] < 0 ? undefined :
 						<div className="time-interval-list">
-							<div className="title">Users within {hour_of_timeslot(inspectCells[0])} - {hour_of_timeslot(inspectCells[1]+1)}</div>
-							<ul className="userNameList">
-							{
-								ts2.enum_users_range(inspectCells[0], inspectCells[1], 1).map(
-									(name) => <li key={name}>{name}</li>
-								)
-							}
+							<div className="title">
+								{inspected_users.length}
+								<span> users within </span>
+								{hour_of_timeslot(inspectCells[0])} - {hour_of_timeslot(inspectCells[1]+1)}
+							</div>
+							<ul className="inline-list">
+							{inspected_users.map((name) => <li key={name}>{name}</li>)}
 							</ul>
+							<button onClick={(e) => setInspectCells([-1,-1])}>Ok whatever</button>
 						</div>
 					}
 				</div>
