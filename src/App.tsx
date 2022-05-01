@@ -72,8 +72,8 @@ class MeetingData {
 
 	active_weeks_of_user(user: string): string[] {
 		let w = new Set<string>();
-		if (this.users[user]) {
-			for(const tv of this.users[user]) {
+		if (this.users.has(user)) {
+			for(const tv of this.users.get(user)) {
 				w.add(monday(tv.from).toISOString());
 			}
 		}
@@ -83,8 +83,8 @@ class MeetingData {
 	// get timeslot table of user for week
 	gtstoufw(user: string, from:Date): TimeslotTable {
 		let tab:TimeslotTable = new TimeslotTable(from);
-		if (this.users[user]) {
-			tab.from_intervals(this.users[user]);
+		if (this.users.has(user)) {
+			tab.from_intervals(this.users.get(user));
 		} else {
 			console.log('user not found', user);
 		}
@@ -100,7 +100,7 @@ class MeetingData {
 
 	get_ua():UserAvailab[] {
 		let ua:UserAvailab[] = [];
-		for(let [name, t] of this.users.entries()) {
+		for(const [name, t] of this.users) {
 			ua.push({
 				meeting: this.meeting.id,
 				username: name,
@@ -111,8 +111,8 @@ class MeetingData {
 	}
 
 	print() {
-		console.log("Meeting", this.meeting.id);
-		for(let [name, t] of this.users.entries()) {
+		console.log("Meeting", this.meeting.id, 'with', this.users.size, 'users');
+		for(const [name, t] of this.users) {
 			console.log("Available times for user", name);
 			print_intervals(t);
 			console.log();
@@ -125,9 +125,9 @@ class MeetingData {
 		this.users = new Map<string, UserAvailabT[]>();
 		if (m.users) {
 			for(const ua of m.users) {
-				this.users[ua.username] = ua.T.map((x) => {
+				this.users.set(ua.username, ua.T.map((x) => {
 					return {...x, from: new Date(x.from), to: new Date(x.to)};
-				});
+				}));
 			}
 		} else {
 			console.log('MeetingResponse has no users :(');
@@ -181,6 +181,7 @@ function fetch_meeting(meeting_id:number, setErr):MeetingData {
 		.then((x) => parsulate_json_meeting_get_respose_function_thingy_123(x,setErr))
 		.catch(err => {
 			console.log('oopsy w/ meeting', meeting_id+':\n', err);
+			setErr('request failed: ' + err.message);
 		});
 }
 
@@ -319,7 +320,7 @@ function ranges_to_timeslots(t_start: Date, timeslots: number[], time_ranges: Us
 }
 
 const Hourgrid = (
-{cursor,cell_color,paint_cells,edit,hover_at}
+{cursor,paint_cells,edit,hover_at,cell_class}
 ) => {
 	const day_start:Date[] = get_week_days(cursor);
 	const today = new Date();
@@ -358,11 +359,11 @@ const Hourgrid = (
 					<div key={i}
 						className={"timeslot"
 							+ (being_painted ? " paint" : "")
-							+ (edit ? " edit" : "")
+							+ (edit ? " edit" : " view")
+							+ " " + cell_class(i)
 						}
-						data-color={cell_color(i)}
 						onClick={(e) => {
-							if (edit && e.button === 0) {
+							if (paint_cells && e.button === 0) {
 								if (dragA === undefined) {
 									begin_drag(i);
 								} else {
@@ -374,7 +375,7 @@ const Hourgrid = (
 							}
 						}}
 						onMouseMove={(e) => {
-							if (edit) update_drag(i);
+							if (paint_cells) update_drag(i);
 							if (hover_at) hover_at(i, e.clientX, e.clientY, dragA, dragB);
 						}}
 						>
@@ -471,6 +472,64 @@ class TimeslotTable {
 	}
 }
 
+class TimeslotTable2 {
+	start: Date;
+	ts: Map<string,number>[];
+
+	constructor(start:Date) {
+		this.start = start;
+		this.ts = Array(TIMESLOTS_WEEK).fill(0).map((x) => new Map<string,number>());
+	}
+
+	from_intervals(name:string, tv:UserAvailabT[]) {
+		let z:number[] = Array(this.ts.length).fill(0);
+		ranges_to_timeslots(this.start, z, tv);
+		for(let i=0; i<z.length; ++i) {
+			if (z[i] !== 0) {
+				this.ts[i].set(name, z[i]);
+			}
+		}
+	}
+
+	from_meeting(me:MeetingData) {
+		if (me.users.size > 0) {
+			for(const [name,tv] of me.users) {
+				this.from_intervals(name, tv);
+			}
+		}
+	}
+
+	num_users(i:number):number {
+		if (this.ts === undefined || this.ts[i] === undefined) return 0;
+		return this.ts[i].size;
+	}
+
+	enum_users_ul(i:number):JSX.Element {
+		if (this.ts === undefined || this.ts[i] === undefined) return <ul><li>undefinedoops</li></ul>;
+		let tmp=[];
+		for (const [k,v] of this.ts[i]) {
+			tmp.push(<li key={k}>{k}</li>);
+		}
+		return <ul>{tmp}</ul>;
+	}
+
+	enum_users_range(from:number, to:number, staTus:number):string[] {
+		if (this.ts === undefined) return [];
+		let tmp = new Set<string>();
+		from = Math.max(0, from);
+		to = Math.min(this.ts.length, to);
+		for(let i=from; i<=to; ++i) {
+			if (this.ts[i] === undefined) continue;
+			for(const [k,v] of this.ts[i]) {
+				if (v === staTus) {
+					tmp.add(k);
+				}
+			}
+		}
+		return Array.from(tmp);
+	}
+}
+
 function get_meeting_id():number {
 	const query = new URLSearchParams(document.location.search);
 	return parseInt(query.get("meeting")!);
@@ -552,18 +611,22 @@ function hour_of_timeslot(i:number):string {
 	return HHMM_1(h,m);
 }
 
-function TooltipContent({i, a, b, edit}) {
-	return (<div>
-		{hour_of_timeslot(i)} - {hour_of_timeslot(i+1)}
-	</div>);
-}
-
 const howto = `
 Click on the calendar to start selecting a time interval.
 Move the cursor somewhere else and click again to paint the selected times.
 They will be painted as "available" if the last clicked time is after the initially clicked time.
 They will be painted as "unavailable" if the last clicked time is before the initially clicked time.
 `;
+
+function uat_to_li(t: UserAvailabT) {
+	return (
+	<li key={t.from} className="item">
+		<span>{DDMM(t.from)} </span>
+		<span>{day_title(t.from)} </span>
+		<span>{HHMM(t.from)}</span> .. <span> {HHMM(t.to)}</span>
+	</li>
+	);
+}
 
 function App(props) {
 	const VIEW = 0;
@@ -573,7 +636,7 @@ function App(props) {
 	let [state, setState] = React.useState(VIEW);
 
 	let [user,setUser] = React.useState("test");
-	let [cursor,setCursor] = React.useState(new Date());
+	let [cursor,setCursor1] = React.useState(new Date());
 	let [hoverX,setHoverX] = React.useState([-1,-1,-1,undefined,undefined]);
 
 	let [me,setMe] = React.useState(new MeetingData(1));
@@ -583,6 +646,9 @@ function App(props) {
 	let setErr = (x) => setStatusMsg('['+HHMMSS(new Date())+'] '+x);
 	let setOk = setErr;
 
+	// print meeting whenever it is updated
+	React.useEffect(() => me.print(), [me]);
+
 	const me_id = 1;//me.meeting.id;
 	let poll_me = () => {
 		const a = async () => {
@@ -591,7 +657,6 @@ function App(props) {
 				setMe(md);
 				resetTsCache();
 				setOk('updated meeting data');
-				md.print();
 			}
 		};
 		a();
@@ -615,6 +680,7 @@ function App(props) {
 	}
 	let [tsDirty,setTsDirty] = React.useState(false);
 
+	// used while in edit mode. timeslot grid cells converted to ranges
 	let uat:UserAvailabT[] = [];
 	if (state == EDIT_TIME) {
 		// discrete timeslots -> list of start/stop ranges
@@ -623,6 +689,33 @@ function App(props) {
 		}
 		uat = uat.sort((a,b) => a.from-b.from);
 	}
+
+	// used while not in edit mode. each users name and status inserted into each grid cell
+	let ts2 = [];
+	if (state != EDIT_TIME) {
+		ts2 = new TimeslotTable2(week_start);
+		ts2.from_meeting(me);
+	}
+	let [inspectCells,setInspectCells] = React.useState([-1,-1]);
+
+	function setCursor(x) {
+		setInspectCells([-1,-1]);
+		setCursor1(x);
+	}
+
+	// i: currently hovered index
+ 	// (a,b): range of painted cells (while editing)
+	function TooltipContent({i, a, b}) {
+		const edit = state == EDIT_TIME;
+		return (<div className="tooltip-content">
+			<div>{hour_of_timeslot(i)} - {hour_of_timeslot(i+1)}</div>
+			{edit ? undefined : <div>
+				Users: {ts2.num_users(i)}
+				{ts2.enum_users_ul(i)}
+			</div>}
+		</div>);
+	}
+
 
 	function resetTsCache() {
 		setTsDirty(false);
@@ -652,7 +745,6 @@ function App(props) {
 				if (md !== undefined) {
 					setMe(md);
 					setOk('updated meeting data w/ our my edits');
-					md.print();
 				}
 			});
 		} else {
@@ -666,17 +758,23 @@ function App(props) {
 		setTsDirty(false);
 	}
 
+	const app:HTMLElement = document.getElementById('App');
+	let app_rect = app?.getBoundingClientRect();
+	if (app_rect === undefined) {
+		app_rect = {left: 0, top: 0};
+	}
+
 	return (
-		<div className="App">
+		<div className="App" id="App">
 			<div>
 				<div className="tooltip"
 					style={{
 						display: hoverX[0] < 0 ? "none" : "block",
 						position: "absolute",
-						left: hoverX[1],
-						top: hoverX[2],
+						left: hoverX[1] - app_rect.left,
+						top: hoverX[2] - app_rect.top,
 					}}>
-					{TooltipContent({i:hoverX[0], a:hoverX[3], b:hoverX[4], edit:state==EDIT_TIME})}
+					{TooltipContent({i:hoverX[0], a:hoverX[3], b:hoverX[4]})}
 				</div>
 				<div className="calendar-main">
 					{Textfield({text:user,setText:setUser,label:"Username",maxlen:28,
@@ -685,10 +783,19 @@ function App(props) {
 					{WeekNavButs({cursor:cursor,setCursor:setCursor})}
 					{Hourgrid({cursor:cursor,edit:(state == EDIT_TIME),
 						paint_cells:(from,to,color) => {
-							setTs(ts.paint(from, to, color));
-							setTsDirty(true);
+							if (state == EDIT_TIME) {
+								setTs(ts.paint(from, to, color));
+								setTsDirty(true);
+							} else {
+								setInspectCells([from, to]);
+							}
 						},
-						cell_color:(i) => ts.ts[i],
+						cell_class:
+							state == EDIT_TIME
+							? (i) => "color" + ts.ts[i]
+							: (i) => "color" + Math.min(ts2.num_users(i),5)
+								+ ( i >= inspectCells[0] && i <= inspectCells[1] ? " inspect" : "")
+							,
 						hover_at: (i,x,y,a,b) => setHoverX([i,x,y,a,b]),
 					})}
 
@@ -705,7 +812,7 @@ function App(props) {
 						className="reset-timetable"
 						onClick={(e) => resetTsCache()}
 						disabled={!tsDirty}
-						> Reset new changes
+						> Undo new changes
 						</button></div>
 
 					</div> : undefined}
@@ -743,18 +850,22 @@ function App(props) {
 						<span className="status-msg">{statusMsg}</span>
 					</div>
 
-					{ state != EDIT_TIME ? undefined :
+					{ state == EDIT_TIME ?
 						<div className="time-interval-list">
 							<div className="title">{uat.length > 0 ? "I'm available on" : howto}</div>
+							<ul className="userTimeList">{uat.map(uat_to_li)}</ul>
+						</div>
+						:
+						inspectCells[0] < 0 ? undefined :
+						<div className="time-interval-list">
+							<div className="title">Users within {hour_of_timeslot(inspectCells[0])} - {hour_of_timeslot(inspectCells[1]+1)}</div>
+							<ul className="userNameList">
 							{
-								uat.map((t) =>
-									<div key={t.from} className="item">
-										<span>{DDMM(t.from)} </span>
-										<span>{day_title(t.from)} </span>
-										<span>{HHMM(t.from)}</span> .. <span> {HHMM(t.to)}</span>
-									</div>
+								ts2.enum_users_range(inspectCells[0], inspectCells[1], 1).map(
+									(name) => <li key={name}>{name}</li>
 								)
 							}
+							</ul>
 						</div>
 					}
 				</div>
