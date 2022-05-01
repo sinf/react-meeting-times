@@ -847,6 +847,17 @@ function App(props) {
 						>Stop editing and discard my edits
 					</button></div>
 
+					<div><button
+						onClick={ (e) => {
+							console.log('state:', state);
+							console.log('pollnr:', pollnr);
+							console.log('dirty:', tsDirty);
+							console.log('ts2:', ts2);
+							me.print();
+						}}
+						>Debug print</button>
+					</div>
+
 					<div>
 						<span className="status-msg">{statusMsg}</span>
 					</div>
