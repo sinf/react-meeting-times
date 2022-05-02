@@ -598,6 +598,9 @@ const Textfield = (
 	let id = "textfield-" + label;
 
 	if (edit) {
+		if (buf === undefined) {
+			buf = text;
+		}
 		return (<div className="textfield">
     		<label htmlFor={id}>{label}: </label>
     		<input
@@ -713,17 +716,17 @@ function is_valid_username(x) {
 }
 
 function LoginScreen({user, setUser}) {
-	const u = user || get_saved_user() || "";
 	return (
 	<div className="username-wrap">
 		<p>You need to choose a username. This shall be saved in local storage</p>
 		<Textfield
 			id="login-username"
-			key={u}
-			text={u}
+			key="username in login screen"
+			text={user}
 			setText={setUser}
+			edit={true}
 			canEdit={true}
-			setEdit={b => 5}
+			setEdit={x => 5}
 			label="Username"
 			maxlen={28}
 			validate={is_valid_username}
@@ -758,9 +761,11 @@ function CalendarWidget(props) {
 	let [user,setUser1] = React.useState(undefined);
 	const no_user = user === undefined || user.length < 1;
 	function setUser(x) {
-		x = x.trim();
-		setUser1(x);
-		set_saved_user(x);
+		if (x !== undefined) {
+			user = x = x.trim();
+			setUser1(x);
+			set_saved_user(x);
+		}
 	}
 
 	let [cursor,setCursor1] = React.useState(new Date());
@@ -957,14 +962,18 @@ function CalendarWidget(props) {
 				}
 				<div className="calendar-main">
 					<div className="username-wrap">
-						{Textfield({text:user,setText:setUser,label:"Username",maxlen:28,
-							canEdit:(state == VIEW),edit:(state == EDIT_NAME),
-							setEdit:(b) => {
+						<Textfield
+							key="username inside calendar-main"
+							text={user}
+							setText={setUser}
+							label={"Username"} maxlen={28}
+							canEdit={state == VIEW}
+							edit={state == EDIT_NAME}
+							setEdit={(b) => {
 								setState(b ? EDIT_NAME : VIEW);
 								if (b) setInspectCells([-1,-1]);
-							},
-							validate:is_valid_username,
-							})}
+							}}
+							validate={is_valid_username} />
 					</div>
 					{WeekNavButs({cursor:cursor,setCursor:setCursor,dis:!(state==VIEW || state==EDIT_TIME)})}
 					{Hourgrid({cursor:cursor,edit:(state == EDIT_TIME),
@@ -1072,7 +1081,8 @@ function CalendarWidget(props) {
 		</div>
 	);
 
-	const the_small_thing = <LoginScreen user={user} setUser={setUser} /> ;
+	const uu = user || get_saved_user() || "";
+	const the_small_thing = <LoginScreen user={uu} setUser={setUser} /> ;
 
 	return no_meeting ? <ERrorScreeN /> : (no_user ? the_small_thing : the_big_thing);
 }
