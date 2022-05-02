@@ -4,16 +4,16 @@ package main
 
 	POST /create       body={id,title,descr,from,to}
 		create a meeting with given parameters
-		=> {id,title,descr,from,to}
+		=> {id,title,descr,from,to,mtime}
 
 	GET  /meeting/{id}
 		get all stuff related to meeting
-		=> {meeting:{id,title,descr,from,to}, users[]:{meeting,username,t[]:{status,from,to}}}
+		=> {meeting:{id,title,descr,from,to,mtime}, users[]:{meeting,username,t[]:{status,from,to}}}
 
 	POST /update       body={meeting,username,t[]:{status,from,to}}
 		overwrite all time ranges of one user in a meeting
 		returns new state of the meeting after applying the requested change 
-		=> {meeting:{id,title,descr,from,to}, users[]:{meeting,username,t[]:{status,from,to}}}
+		=> {meeting:{id,title,descr,from,to,mtime}, users[]:{meeting,username,t[]:{status,from,to}}}
 
 */
 
@@ -44,6 +44,7 @@ type Meeting struct {
 	Descr string `json:"descr"`
 	Ts_from time.Time `json:"from"`
 	Ts_to time.Time `json:"to"`
+	Mtime time.Time `json:"mtime"`
 }
 
 type UserAvailabT struct {
@@ -78,11 +79,18 @@ func (a *App) init(db_user, db_name string) {
 	//dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", db_user, db_password, db_name)
 	dbinfo := fmt.Sprintf("user=%s dbname=%s sslmode=disable", db_user, db_name)
 	db, err := sql.Open("postgres", dbinfo)
-	checkErr(err)
+	if err != nil {
+		fmt.Println("Failed to connect to postgres");
+		panic(err)
+	}
 
 	// make sure that a basic query works
 	rows,err := db.Query("SELECT id FROM one LIMIT 1")
-	checkErr(err)
+	if err != nil {
+		fmt.Println("Failed to query test shit. Postgresl not running?");
+		panic(err)
+	}
+
 	for rows.Next() {
 		var id int
 		err = rows.Scan(&id)
@@ -124,7 +132,7 @@ func (a *App) GetMeeting(meeting_id int64) *MeetingResponse {
 
 	for rows.Next() {
 		var m Meeting
-		err = rows.Scan(&m.Id, &m.Title, &m.Descr, &m.Ts_from, &m.Ts_to)
+		err = rows.Scan(&m.Id, &m.Title, &m.Descr, &m.Ts_from, &m.Ts_to, &m.Mtime)
 		checkErr(err)
 		rows.Close()
 		mr.Meeting = m
@@ -252,6 +260,10 @@ func (a* App) SetUserAvail(ua *UserAvailab) {
 		_, err := st.Exec(ua.Meeting, t.Ts_from, t.Ts_to, ua.Username, t.Status)
 		checkErr(err)
 	}
+
+	_, err = tx.Exec("UPDATE meetings SET mtime = CURRENT_TIMESTAMP WHERE id = $1", ua.Meeting)
+	checkErr(err)
+
 	checkErr(st.Close())
 	checkErr(tx.Commit())
 }
