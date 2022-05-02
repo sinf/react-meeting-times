@@ -888,13 +888,16 @@ function CalendarWidget(props) {
 					}}>
 					{TooltipContent({i:hoverX[0], a:hoverX[3], b:hoverX[4]})}
 				</div>
-				<div>
-					<h1>{me?.meeting?.title}</h1>
-					<p>{me?.meeting?.descr}</p>
-					<p>Link to this meeting
-						<WysiwygLink url={get_meeting_url(me?.meeting?.id)} />
-					</p>
-				</div>
+				{!me ? undefined : 
+					<div className="meeting-info">
+						<h1>{me?.meeting?.title}</h1>
+						<p>{me?.meeting?.descr}</p>
+						<div>Link to this meeting
+							<WysiwygLink url={get_meeting_url(me?.meeting?.id)} />
+						</div>
+						<div>Last modification: {mtime.toISOString()}</div>
+					</div>
+				}
 				<div className="calendar-main">
 					{Textfield({text:user,setText:setUser,label:"Username",maxlen:28,
 						canEdit:(state == VIEW),edit:(state == EDIT_NAME),
