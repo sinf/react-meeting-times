@@ -24,6 +24,7 @@ import (
    "fmt"
    "time"
    "log"
+   "os"
    "net/http"
    "strconv"
 
@@ -32,11 +33,19 @@ import (
    _ "github.com/lib/pq"
 )
 
+type ServerConfig struct {
+	DbInfo string `json:"DbInfo"` 
+	ServerAddr string `json:"ServerAddr"`
+	AllowedOrigins []string `json:"AllowedOrigins"`
+	AllowedHeaders []string `json:"AllowedHeaders"`
+}
+
 type App struct {
 	r *mux.Router
 	db *sql.DB
 	st_get_m *sql.Stmt
 	st_get_ua *sql.Stmt
+	cf ServerConfig
 }
 
 type Meeting struct {
@@ -72,20 +81,19 @@ func checkErr(err error) {
 }
 
 func (a *App) run() {
-	fmt.Println("Server at 9080")
-
-	h := handlers.AllowedHeaders([]string{"Accept", "Origin", "Accept-Encoding", "Content-Type"})
-	o := handlers.AllowedOrigins([]string{"http://localhost:3000"})
+	h := handlers.AllowedHeaders(a.cf.AllowedHeaders)
+	o := handlers.AllowedOrigins(a.cf.AllowedOrigins)
 	m := handlers.AllowedMethods([]string{"GET", "POST"})
 	c := handlers.CORS(o,h,m)(a.r)
 
-	log.Fatal(http.ListenAndServe(":9080", c))
+	fmt.Println("Serving at", a.cf.ServerAddr)
+	log.Fatal(http.ListenAndServe(a.cf.ServerAddr, c))
 }
 
-func (a *App) init(db_user, db_name string) {
-	//dbinfo := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", db_user, db_password, db_name)
-	dbinfo := fmt.Sprintf("user=%s dbname=%s sslmode=disable", db_user, db_name)
-	db, err := sql.Open("postgres", dbinfo)
+func (a *App) init(cf ServerConfig) {
+	a.cf = cf
+
+	db, err := sql.Open("postgres", cf.DbInfo)
 	if err != nil {
 		fmt.Println("Failed to connect to postgres");
 		panic(err)
@@ -122,13 +130,42 @@ func (a *App) init(db_user, db_name string) {
 	a.r = r
 }
 
+func get_config() ServerConfig {
+	default_cf := &ServerConfig {
+		DbInfo: "user=postgres dbname=meetings_app sslmode=disable",
+		ServerAddr: ":9080",
+		AllowedOrigins: []string{"http://localhost:3000"},
+		AllowedHeaders: []string{"Accept", "Origin", "Accept-Encoding", "Content-Type"},
+	}
+
+	cf_path := "server-config.json"
+	fmt.Println("configuration file:", cf_path)
+
+	cf := default_cf
+	data, err := os.ReadFile(cf_path)
+	if err == nil && len(data) > 0 {
+		fmt.Println("reading configuration")
+		json.Unmarshal(data, &cf)
+	} else {
+		file, err := os.OpenFile(cf_path, os.O_CREATE | os.O_RDWR, 0644)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			fmt.Println("writing new configuration")
+			e := json.NewEncoder(file)
+			e.SetIndent("", "    ")
+			e.Encode(cf)
+			file.Close()
+		}
+	}
+
+	return *cf
+}
+
 func main() {
-	const (
-    	DB_USER     = "postgres" // os.Getenv("DB_USER")
-    	DB_NAME     = "meetings_app" //os.Getenv("DB_NAME")
-	)
+	cf := get_config()
 	a := App{}
-	a.init(DB_USER, DB_NAME)
+	a.init(cf)
 	a.run()
 }
 

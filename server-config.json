@@ -1,0 +1,13 @@
+{
+    "DbInfo": "user=postgres dbname=meetings_app sslmode=disable",
+    "ServerAddr": ":9080",
+    "AllowedOrigins": [
+        "http://localhost:3000"
+    ],
+    "AllowedHeaders": [
+        "Accept",
+        "Origin",
+        "Accept-Encoding",
+        "Content-Type"
+    ]
+}
