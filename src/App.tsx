@@ -735,7 +735,14 @@ function CalendarWidget(props) {
 
 	let [state, setState] = React.useState(INIT);
 
-	let [user,setUser] = React.useState("test");
+	let [user,setUser1] = React.useState(undefined);
+	const no_user = user === undefined || user.length < 1;
+	function setUser(x) {
+		x = x.trim();
+		setUser1(x);
+		set_saved_user(x);
+	}
+
 	let [cursor,setCursor1] = React.useState(new Date());
 	let [hoverX,setHoverX] = React.useState([-1,-1,-1,undefined,undefined]);
 
@@ -746,6 +753,11 @@ function CalendarWidget(props) {
 	let [statusMsg,setStatusMsg] = React.useState("");
 	let setErr = (x) => setStatusMsg('['+HHMMSS(new Date())+'] '+x);
 	let setOk = setErr;
+
+	let [no_meeting,set_no_meeting] = React.useState(false);
+	if (!no_meeting && statusMsg.indexOf("meeting does not exist") >= 0) {
+		set_no_meeting(no_meeting = true);
+	}
 
 	// print meeting whenever it is updated
 	React.useEffect(() => me?.print(), [me]);
@@ -776,6 +788,7 @@ function CalendarWidget(props) {
 						console.log('ignoring obsolete meeting data', new_mtime, 'vs current', mtime);
 					}
 				}
+				set_no_meeting(false);
 			}
 		};
 		a();
