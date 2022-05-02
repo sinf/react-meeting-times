@@ -13,7 +13,9 @@ const BACKEND = 'http://localhost:9080/';
 const FRONTEND = 'http://localhost:3000/';
 
 function make_backend_url(endpoint: string) { return BACKEND + endpoint; }
-function get_meeting_path(id) { return id; }
+function encode_meeting_id(i) { return i; }
+function decode_meeting_id(i) { return i; }
+function get_meeting_path(id) { return encode_meeting_id(id); }
 function get_meeting_url(id) { return FRONTEND + get_meeting_path(id); }
 
 interface CalendarProps {
@@ -1058,7 +1060,7 @@ function App(props) {
 	}, [id]);
 
 	if (/^\d+$/.test(p)) {
-		const i = parseInt(p);
+		const i = decode_meeting_id(parseInt(p));
 		if (i != id) {
 			console.log('path name looks like a number', window.location.pathname);
 			setid(id = i);
