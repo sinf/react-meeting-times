@@ -592,15 +592,16 @@ const WeekNavButs = (
 }
 
 const Textfield = (
-{text,setText,label,maxlen,canEdit,edit,setEdit}
+{text,setText,label,maxlen,canEdit,edit,setEdit,validate}
 ) => {
 	let [buf,setBuf] = React.useState(undefined);
-	let id = "textfield-" + label;
+	let id = "textfield-" + label.replace(' ','-');
 
 	if (edit) {
 		if (buf === undefined) {
 			buf = text;
 		}
+		let [valid,explanation] = validate ? validate(buf) : [true,""];
 		return (<div className="textfield">
     		<label htmlFor={id}>{label}: </label>
     		<input
@@ -614,7 +615,9 @@ const Textfield = (
     				setText(buf);
     				setEdit(false);
     			}}
+    			disabled={!valid}
     			>Enter</button>
+    		<p>{explanation}</p>
 		</div>);
 	} else {
 		return (<div className="textfield">
@@ -712,7 +715,19 @@ function set_saved_user(x:string) {
 }
 
 function is_valid_username(x) {
-	return x !== undefined && x.trim().length > 0;
+	const lmin = 2;
+	const lmax = 28;
+	let ok = true;
+	let reason = "";
+	let xt = x?.trim();
+	if (!x || xt.length < lmin) {
+		ok = false;
+		reason = `username is too short (want at least ${lmin} character${lmin>1?"s":""})`;
+	} else if (xt.length > lmax) {
+		ok = false;
+		reason = `username is too long (want at most ${lmax} characters)`;
+	}
+	return [ok, reason];
 }
 
 function LoginScreen({user, setUser}) {
@@ -758,7 +773,7 @@ function CalendarWidget(props) {
 
 	let [state, setState] = React.useState(INIT);
 
-	let [user,setUser1] = React.useState(undefined);
+	let [user,setUser1] = React.useState(get_saved_user() || undefined);
 	const no_user = user === undefined || user.length < 1;
 	function setUser(x) {
 		if (x !== undefined) {
@@ -1081,9 +1096,7 @@ function CalendarWidget(props) {
 		</div>
 	);
 
-	const uu = user || get_saved_user() || "";
-	const the_small_thing = <LoginScreen user={uu} setUser={setUser} /> ;
-
+	const the_small_thing = <LoginScreen user={user} setUser={setUser} /> ;
 	return no_meeting ? <ERrorScreeN /> : (no_user ? the_small_thing : the_big_thing);
 }
 
