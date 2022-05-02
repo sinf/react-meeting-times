@@ -904,7 +904,8 @@ function CalendarWidget(props) {
 		app_rect = {left: 0, top: 0};
 	}
 
-	return (
+	// react blows up if this element tree isn't instantiated even when not used :(
+	const the_big_thing = (
 		<div className={(state == INIT ? " init":"")} id="CalendarRoot">
 			{state != INIT ? undefined :
 				<div className="loading-overlay">
@@ -935,12 +936,16 @@ function CalendarWidget(props) {
 					</div>
 				}
 				<div className="calendar-main">
-					{Textfield({text:user,setText:setUser,label:"Username",maxlen:28,
-						canEdit:(state == VIEW),edit:(state == EDIT_NAME),
-						setEdit:(b) => {
-							setState(b ? EDIT_NAME : VIEW);
-							if (b) setInspectCells([-1,-1]);
-						}})}
+					<div className="username-wrap">
+						{Textfield({text:user,setText:setUser,label:"Username",maxlen:28,
+							canEdit:(state == VIEW),edit:(state == EDIT_NAME),
+							setEdit:(b) => {
+								setState(b ? EDIT_NAME : VIEW);
+								if (b) setInspectCells([-1,-1]);
+							},
+							validate:is_valid_username,
+							})}
+					</div>
 					{WeekNavButs({cursor:cursor,setCursor:setCursor,dis:!(state==VIEW || state==EDIT_TIME)})}
 					{Hourgrid({cursor:cursor,edit:(state == EDIT_TIME),
 						paint_cells:
@@ -1046,6 +1051,8 @@ function CalendarWidget(props) {
 			</div>
 		</div>
 	);
+
+	return no_meeting ? <ERrorScreeN /> : the_big_thing;
 }
 
 function NewMeetingDialog({setid}) {
