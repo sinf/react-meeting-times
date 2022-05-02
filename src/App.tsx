@@ -9,13 +9,12 @@ const TIMESLOTS_WEEK = 7*TIMESLOTS_DAY;
 const TIMESLOT_DURATION_MIN = 60/TIMESLOTS_HOUR;
 const FIRST_VISIBLE_TIMESLOT = 6*TIMESLOTS_HOUR;
 
-function make_backend_url(endpoint: string) {
-	return 'http://localhost:9080/' + endpoint;
-}
+const BACKEND = 'http://localhost:9080/';
+const FRONTEND = 'http://localhost:3000/';
 
-function get_meeting_url(id) {
-	return 'http://localhost:3000/' + id;
-}
+function make_backend_url(endpoint: string) { return BACKEND + endpoint; }
+function get_meeting_path(id) { return id; }
+function get_meeting_url(id) { return FRONTEND + get_meeting_path(id); }
 
 interface CalendarProps {
 	t_initial: Date;
@@ -1070,7 +1069,7 @@ function App(props) {
 		{id < 0 ?
 			<NewMeetingDialog setid={(x) => {
 				setid(x);
-				window.history.pushState("","","/"+x);
+				window.history.pushState("","","/"+get_meeting_path(x));
 			}} />
 		:
 			<CalendarWidget key={id} the_meeting_id={id} />
