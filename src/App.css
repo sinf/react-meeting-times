@@ -12,7 +12,7 @@ button {
 }
 
 .App {
-	margin: 0.5em auto 0.5em auto;
+	margin: 0.1em auto 0.1em auto;
 	text-align: center;
 }
 
@@ -24,10 +24,14 @@ a {
 	margin: 0 0.2em 0 0.2em;
 }
 
+.new-meeting-form {
+	max-width: 30em;
+}
+
 #CalendarRoot, .new-meeting-form {
 	position: relative;
-	max-width: 30em;
 	margin: auto;
+	text-align: left;
 }
 
 .new-meeting-form input, .new-meeting-form textarea {
@@ -36,6 +40,9 @@ a {
 
 .debug .calendar-main {
 	border: 1px solid blue;
+}
+.calendar-main {
+	margin: 0.25em 0 0 0;
 }
 
 table.calendar {
@@ -171,14 +178,28 @@ tr:nth-of-type(odd) .hourlabel {
 	text-align: left;
 }
 
-.time-interval-list {
-	margin: auto;
-	max-width: 25em;
+.calendar-buttons-panel {
+	width: 18em;
+	height: 34em;
+
 	text-align: left;
 	color: white;
-	background: darkblue;
+	background: black;
 	border-radius: 0.3em;
 	padding: 0.5em;
+
+	display: flex;
+	flex-flow: column nowrap;
+	justify-content: space-between;
+	align-items: stretch;
+	align-content: stretch;
+	gap: 0.1em;
+}
+
+.time-interval-list {
+	height: 100%;
+	overflow: auto;
+	background: #202124;
 }
 .time-interval-list .item span {
 	display: inline-block;
@@ -202,5 +223,50 @@ tr:nth-of-type(odd) .hourlabel {
 
 .username-wrap {
 	margin: 0.25em 0 0.25em 0;
+}
+
+nav {
+	list-style: none;
+	display: inline-block;
+	float: right;
+	margin: 0 0 0.2em 0;
+}
+nav li {
+	padding: 0.2em;
+	background: black;
+	display: flex;
+	border-radius: 0.3em;
+	margin: auto 0.2em auto 0.2em;
+	float: right;
+	min-height: 1.8em;
+}
+.textfield {
+	height: 1em;
+}
+.status-msg {
+	margin: 0 0 0.2em 0;
+	display: inline-block;
+}
+
+.columns-container {
+	display: flex;
+
+	flex-direction: row;
+	flex-wrap: wrap;
+	flex-flow: row wrap;  /* shorthand for above */
+
+	justify-content: space-around; /* for main axis (=row) */
+	align-items: stretch; /* for secondary axis (=column) */
+	align-content: flex-start; /* secondary axis (what to do if theres extra empty space) */
+	gap: 0.5em;
+}
+
+.meeting-info {
+	min-width: 10em;
+	max-width: 30em;
+}
+
+.button-group.startstop button {
+	display: block;
 }
 

@@ -571,7 +571,7 @@ const WeekNavButs = (
 {cursor,setCursor,dis}:{cursor:Date,setCursor:Object,dis:boolean}
 ) => {
 	return (
-   <div className="weekNav">
+   <div className="weekNav button-group">
 		<div className="weekNr">
 			Week {week_nr(cursor)} of {cursor.getFullYear()}
 		</div>
@@ -591,18 +591,14 @@ const WeekNavButs = (
 	);
 }
 
-const Textfield = (
-{text,setText,label,maxlen,canEdit,edit,setEdit,validate}
-) => {
+function Textfield({text,setText,label,maxlen,canEdit,edit,setEdit,validate}) {
 	let [buf,setBuf] = React.useState(undefined);
 	let id = "textfield-" + label.replace(' ','-');
 
 	if (edit) {
-		if (buf === undefined) {
-			buf = text;
-		}
+		buf = buf || text || "";
 		let [valid,explanation] = validate ? validate(buf) : [true,""];
-		return (<div className="textfield">
+		return (<span className="textfield">
     		<label htmlFor={id}>{label}: </label>
     		<input
     			id={id} name={id} type="text"
@@ -618,9 +614,9 @@ const Textfield = (
     			disabled={!valid}
     			>Enter</button>
     		<p>{explanation}</p>
-		</div>);
+		</span>);
 	} else {
-		return (<div className="textfield">
+		return (<span className="textfield">
 			<label>{label}: </label>
 			<span id={id}>{text}</span>
 			<span> </span>
@@ -631,9 +627,9 @@ const Textfield = (
 				}}
 				disabled={!canEdit}
 				>Edit</button>
-		</div>);
+		</span>);
 	}
-};
+}
 
 const Textfield2 = (
 {buf,setBuf,label,maxlen,rows,cols,dis}
@@ -722,10 +718,10 @@ function is_valid_username(x) {
 	let xt = x?.trim();
 	if (!x || xt.length < lmin) {
 		ok = false;
-		reason = `username is too short (want at least ${lmin} character${lmin>1?"s":""})`;
+		reason = `It should have at least ${lmin} character${lmin>1?"s":""}`;
 	} else if (xt.length > lmax) {
 		ok = false;
-		reason = `username is too long (want at most ${lmax} characters)`;
+		reason = `It should have at most ${lmax} characters`;
 	}
 	return [ok, reason];
 }
@@ -733,19 +729,22 @@ function is_valid_username(x) {
 function LoginScreen({user, setUser}) {
 	return (
 	<div className="username-wrap">
-		<p>You need to choose a username. This shall be saved in local storage</p>
-		<Textfield
-			id="login-username"
-			key="username in login screen"
-			text={user}
-			setText={setUser}
-			edit={true}
-			canEdit={true}
-			setEdit={x => 5}
-			label="Username"
-			maxlen={28}
-			validate={is_valid_username}
-			/>
+		<p>Choose a username</p>
+		<div>
+			<Textfield
+				id="login-username"
+				key="username in login screen"
+				text={user}
+				setText={setUser}
+				edit={true}
+				canEdit={true}
+				setEdit={x => 5}
+				label="Username"
+				maxlen={28}
+				validate={is_valid_username}
+				/>
+		</div>
+		<p>This will be remembered in local storage</p>
 	</div>
 	);
 }
@@ -944,39 +943,16 @@ function CalendarWidget(props) {
 		app_rect = {left: 0, top: 0};
 	}
 
-	// react blows up if this element tree isn't instantiated even when not used :(
 	const the_big_thing = (
 		<div className={(state == INIT ? " init":"")} id="CalendarRoot">
-			{state != INIT ? undefined :
-				<div className="loading-overlay">
-					<div>
-						<h1>Loading...</h1>
-						<p className="status-msg">{statusMsg}</p>
-					</div>
-				</div>
-			}
-			<div>
-				<div className="tooltip"
-					style={{
-						display: (state == INIT || hoverX[0] < 0) ? "none" : "block",
-						position: "absolute",
-						left: hoverX[1] - app_rect.left,
-						top: hoverX[2] - app_rect.top,
-					}}>
-					{TooltipContent({i:hoverX[0], a:hoverX[3], b:hoverX[4]})}
-				</div>
-				{!me ? undefined : 
-					<div className="meeting-info">
-						<h1>{me?.meeting?.title}</h1>
-						<p>{me?.meeting?.descr}</p>
-						<div>Link to this meeting
-							<WysiwygLink url={get_meeting_url(me?.meeting?.id)} />
-						</div>
-						<div>Last modification: {mtime.toISOString()}</div>
-					</div>
-				}
-				<div className="calendar-main">
-					<div className="username-wrap">
+			<div className="status-msg">{statusMsg}</div>
+
+			<nav>
+				<ul>
+					<li>
+						<span>Create a <a href={FRONTEND}>new meeting</a></span>
+					</li>
+					<li>
 						<Textfield
 							key="username inside calendar-main"
 							text={user}
@@ -989,8 +965,124 @@ function CalendarWidget(props) {
 								if (b) setInspectCells([-1,-1]);
 							}}
 							validate={is_valid_username} />
+					</li>
+
+					{!debug_mode ? undefined : <li>State = {state}</li>}
+					{!debug_mode ? undefined :
+					<li>
+						<button
+							onClick={ (e) => {
+								console.log('state:', state);
+								console.log('pollnr:', pollnr);
+								console.log('dirty:', tsDirty);
+								console.log('ts2:', ts2);
+								me.print();
+							}}
+							>Debug print</button>
+					</li>}
+				</ul>
+			</nav>
+
+			<div style={{clear:"both"}} />
+
+			{state != INIT ? undefined :
+				<div className="loading-overlay">
+					<div>
+						<h1>Loading...</h1>
+						<p className="status-msg">{statusMsg}</p>
 					</div>
+				</div>
+			}
+
+			<div className="tooltip"
+				style={{
+					display: (state == INIT || hoverX[0] < 0) ? "none" : "block",
+					position: "absolute",
+					left: hoverX[1] - app_rect.left,
+					top: hoverX[2] - app_rect.top,
+				}}>
+				{TooltipContent({i:hoverX[0], a:hoverX[3], b:hoverX[4]})}
+			</div>
+
+			<div className="columns-container">
+
+				<aside className="flexcolumn calendar-buttons-panel">
+					{
+					state == EDIT_TIME ?
+						<div className="time-interval-list">
+							<div className="title">{uat.length > 0 ? "I'm available on" : howto}</div>
+							<ul className="userTimeList">{uat.map(uat_to_li)}</ul>
+						</div>
+					: (
+						inspectCells[0] < 0 ?
+						<div className="time-interval-list" />
+						:
+						<div className="time-interval-list">
+							<div className="title">
+								{inspected_users.length}
+								<span> users within </span>
+								{hour_of_timeslot(inspectCells[0])} - {hour_of_timeslot(inspectCells[1]+1)}
+							</div>
+							<ul className="inline-list">
+							{inspected_users.map((name) => <li key={name}>{name}</li>)}
+							</ul>
+							<div className="alright">
+								<button onClick={(e) => setInspectCells([-1,-1])}>Ok whatever</button>
+							</div>
+						</div>
+					)
+					}
+
+					<div className="button-group">
+						<button
+							className="edit-calendar"
+							onClick={(e) => {
+								if (state == EDIT_TIME) {
+									endEdit();
+								} else {
+									beginEdit();
+								}
+							}}
+							disabled={(state != EDIT_TIME && state != VIEW)
+								|| (state == EDIT_TIME && !tsDirty) }
+							>
+							{[
+								"Start editing my timetable",
+								"Stop editing and submit my timetable",
+							][state == EDIT_TIME ? 1:0]}
+						</button>
+
+						{state != EDIT_TIME ? undefined : <button
+							className="discard"
+							onClick={(e) => {
+								if (state == EDIT_TIME) {
+									cancelEdit();
+								}
+							}}
+							>Stop editing and discard my edits
+						</button>}
+
+						<div className="button-group alright">
+							<button
+								className="clear-timetable"
+								onClick={(e) => {
+									setTsCache(new Map<string,TimeslotTable>());
+									setTsDirty(true);
+								}}
+								disabled={uat.length == 0}
+								> Clear my timetable </button>
+							<button
+								className="reset-timetable"
+								onClick={(e) => resetTsCache()}
+								disabled={!tsDirty}
+								> Undo </button>
+						</div>
+					</div>
+				</aside>
+
+				<div className="flexcolumn calendar-main">
 					{WeekNavButs({cursor:cursor,setCursor:setCursor,dis:!(state==VIEW || state==EDIT_TIME)})}
+
 					{Hourgrid({cursor:cursor,edit:(state == EDIT_TIME),
 						paint_cells:
 							(state == EDIT_TIME || state == VIEW)
@@ -1011,87 +1103,18 @@ function CalendarWidget(props) {
 							,
 						hover_at: (i,x,y,a,b) => setHoverX([i,x,y,a,b]),
 					})}
-
-					<div><button
-						className="edit-calendar"
-						onClick={(e) => {
-							if (state == EDIT_TIME) {
-								endEdit();
-							} else {
-								beginEdit();
-							}
-						}}
-						disabled={(state != EDIT_TIME && state != VIEW)
-							|| (state == EDIT_TIME && !tsDirty) }
-						>
-						{[
-							"Start painting my available times on the calendar",
-							"Stop editing and submit my new timetable",
-						][state == EDIT_TIME ? 1:0]}
-					</button></div>
-
-					{state != EDIT_TIME ? undefined : <div><button
-						className="discard"
-						onClick={(e) => {
-							if (state == EDIT_TIME) {
-								cancelEdit();
-							}
-						}}
-						>Stop editing and discard my edits
-					</button></div>}
-
-					{!debug_mode ? undefined :
-					<div>
-						State = {state} <button
-							onClick={ (e) => {
-								console.log('state:', state);
-								console.log('pollnr:', pollnr);
-								console.log('dirty:', tsDirty);
-								console.log('ts2:', ts2);
-								me.print();
-							}}
-							>Debug print</button>
-					</div>}
-
-					<p className="status-msg">{statusMsg}</p>
-
-					{ state == EDIT_TIME ?
-						<div className="time-interval-list">
-							<div className="title">{uat.length > 0 ? "I'm available on" : howto}</div>
-							<ul className="userTimeList">{uat.map(uat_to_li)}</ul>
-							<div className="alright">
-								<button
-									className="clear-timetable"
-									onClick={(e) => {
-										setTsCache(new Map<string,TimeslotTable>());
-										setTsDirty(true);
-									}}
-									disabled={uat.length == 0}
-									> Clear my timetable </button>
-								<button
-									className="reset-timetable"
-									onClick={(e) => resetTsCache()}
-									disabled={!tsDirty}
-									> Undo </button>
-							</div>
-						</div>
-						:
-						inspectCells[0] < 0 ? undefined :
-						<div className="time-interval-list">
-							<div className="title">
-								{inspected_users.length}
-								<span> users within </span>
-								{hour_of_timeslot(inspectCells[0])} - {hour_of_timeslot(inspectCells[1]+1)}
-							</div>
-							<ul className="inline-list">
-							{inspected_users.map((name) => <li key={name}>{name}</li>)}
-							</ul>
-							<div className="alright">
-								<button onClick={(e) => setInspectCells([-1,-1])}>Ok whatever</button>
-							</div>
-						</div>
-					}
 				</div>
+
+				{!me ? undefined : 
+					<div className="flexcolumn meeting-info">
+						<h1>{me?.meeting?.title}</h1>
+						<p>{me?.meeting?.descr}</p>
+						<div>Link to this meeting
+							<WysiwygLink url={get_meeting_url(me?.meeting?.id)} />
+						</div>
+						<div>Last modification: {mtime.toISOString()}</div>
+					</div>
+				}
 			</div>
 		</div>
 	);
@@ -1112,6 +1135,10 @@ function NewMeetingDialog({setid}) {
 		<Textfield2 buf={ti} setBuf={setTi} label="Title" maxlen={80} rows={1} cols={60} dis={dis} />
 		<Textfield2 buf={de} setBuf={setDe} label="Description" maxlen={640} rows={10} cols={60} dis={dis} />
 		<br/>
+		<button
+			disabled={dis}
+			onClick={(e) => alert("Nothing happened!")}
+			>Don&lsquo;t create meeting</button>
 		<button
 			onClick={(e) => {
 				setSent(true);
@@ -1158,7 +1185,7 @@ function App(props) {
 		}
 	}
 
-	return <div className={"App" + (check_debug_mode() ? " debug" : "")}>
+	return <main className={"App" + (check_debug_mode() ? " debug" : "")}>
 		{id < 0 ?
 			<NewMeetingDialog setid={(x) => {
 				setid(x);
@@ -1167,7 +1194,7 @@ function App(props) {
 		:
 			<CalendarWidget key={id} the_meeting_id={id} />
 		}
-	</div>;
+	</main>;
 }
 
 export default App;
