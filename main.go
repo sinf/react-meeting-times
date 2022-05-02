@@ -28,6 +28,7 @@ import (
    "strconv"
 
    "github.com/gorilla/mux"
+   "github.com/gorilla/handlers"
    _ "github.com/lib/pq"
 )
 
@@ -72,7 +73,13 @@ func checkErr(err error) {
 
 func (a *App) run() {
 	fmt.Println("Server at 9080")
-	log.Fatal(http.ListenAndServe(":9080", a.r))
+
+	h := handlers.AllowedHeaders([]string{"Accept", "Origin", "Accept-Encoding", "Content-Type"})
+	o := handlers.AllowedOrigins([]string{"http://localhost:3000"})
+	m := handlers.AllowedMethods([]string{"GET", "POST"})
+	c := handlers.CORS(o,h,m)(a.r)
+
+	log.Fatal(http.ListenAndServe(":9080", c))
 }
 
 func (a *App) init(db_user, db_name string) {
@@ -108,10 +115,11 @@ func (a *App) init(db_user, db_name string) {
 	a.st_get_ua, err = db.Prepare("SELECT * FROM user_availab WHERE meeting = $1")
 	checkErr(err)
 
-	a.r = mux.NewRouter()
-	a.r.HandleFunc("/create", a.CreateMeetingR).Methods("POST")
-	a.r.HandleFunc("/meeting/{id}", a.GetMeetingR).Methods("GET")
-	a.r.HandleFunc("/update", a.SetUserAvailR).Methods("POST")
+	r := mux.NewRouter()
+	r.HandleFunc("/create", a.CreateMeetingR).Methods("POST")
+	r.HandleFunc("/meeting/{id}", a.GetMeetingR).Methods("GET")
+	r.HandleFunc("/update", a.SetUserAvailR).Methods("POST")
+	a.r = r
 }
 
 func main() {
