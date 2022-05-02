@@ -200,3 +200,7 @@ tr:nth-of-type(odd) .hourlabel {
 	margin: 0 0.25em 0 1em;
 }
 
+.username-wrap {
+	margin: 0.25em 0 0.25em 0;
+}
+
