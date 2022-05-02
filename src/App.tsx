@@ -856,13 +856,11 @@ function CalendarWidget(props) {
 
 	// used while in edit mode. timeslot grid cells converted to ranges
 	let uat:UserAvailabT[] = [];
-	if (state == EDIT_TIME) {
-		// discrete timeslots -> list of start/stop ranges
-		for(const t of tsCache.values()) {
-			uat = uat.concat(t.to_intervals());
-		}
-		uat = uat.sort((a,b) => a.from-b.from);
+	// discrete timeslots -> list of start/stop ranges
+	for(const t of tsCache.values()) {
+		uat = uat.concat(t.to_intervals());
 	}
+	uat = uat.sort((a,b) => a.from-b.from);
 
 	let [inspectCells,setInspectCells] = React.useState([-1,-1]);
 	let inspected_users:string[] = [];
@@ -1008,15 +1006,12 @@ function CalendarWidget(props) {
 
 				<aside className="flexcolumn calendar-buttons-panel">
 					{
-					state == EDIT_TIME ?
+					state == EDIT_TIME || inspectCells[0]<0 ?
 						<div className="time-interval-list">
 							<div className="title">{uat.length > 0 ? "I'm available on" : howto}</div>
 							<ul className="userTimeList">{uat.map(uat_to_li)}</ul>
 						</div>
-					: (
-						inspectCells[0] < 0 ?
-						<div className="time-interval-list" />
-						:
+					:
 						<div className="time-interval-list">
 							<div className="title">
 								{inspected_users.length}
@@ -1030,7 +1025,6 @@ function CalendarWidget(props) {
 								<button onClick={(e) => setInspectCells([-1,-1])}>Ok whatever</button>
 							</div>
 						</div>
-					)
 					}
 
 					<div className="button-group">
@@ -1048,7 +1042,7 @@ function CalendarWidget(props) {
 							>
 							{[
 								"Start editing my timetable",
-								"Stop editing and submit my timetable",
+								"Save",
 							][state == EDIT_TIME ? 1:0]}
 						</button>
 
@@ -1059,7 +1053,7 @@ function CalendarWidget(props) {
 									cancelEdit();
 								}
 							}}
-							>Stop editing and discard my edits
+							>{"Discard changes"}
 						</button>}
 
 						<div className="button-group alright">
@@ -1069,12 +1063,12 @@ function CalendarWidget(props) {
 									setTsCache(new Map<string,TimeslotTable>());
 									setTsDirty(true);
 								}}
-								disabled={uat.length == 0}
+								disabled={state != EDIT_TIME || uat.length == 0}
 								> Clear my timetable </button>
 							<button
 								className="reset-timetable"
 								onClick={(e) => resetTsCache()}
-								disabled={!tsDirty}
+								disabled={state != EDIT_TIME || !tsDirty}
 								> Undo </button>
 						</div>
 					</div>

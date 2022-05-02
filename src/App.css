@@ -270,3 +270,7 @@ nav li {
 	display: block;
 }
 
+.weekNr, .weekNav {
+	text-align: center;
+}
+
