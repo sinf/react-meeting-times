@@ -572,7 +572,7 @@ const WeekNavButs = (
 	return (
    <div className="weekNav">
 		<div className="weekNr">
-			Week {week_nr(cursor)} of the colossal failure of {cursor.getFullYear()}
+			Week {week_nr(cursor)} of {cursor.getFullYear()}
 		</div>
 		<button
 			onClick={(e) => setCursor(add_days(cursor, -7))}
@@ -1009,14 +1009,14 @@ function CalendarWidget(props) {
 }
 
 function NewMeetingDialog({setid}) {
-	let [ti,setTi] = React.useState("our meeting");
-	let [de,setDe] = React.useState("discuss ABC for the class XYZ");
+	let [ti,setTi] = React.useState("Our stupid meeting");
+	let [de,setDe] = React.useState("");
 	let [sent,setSent] = React.useState(false);
 	let [err,setErr] = React.useState("");
 	const dis = sent;
 	return <div className="new-meeting-form">
-		<h1>You&lsquo;re about to to create a meeting</h1>
-		<p>Please type some words. It is nice to tell which meeting the people are joining</p>
+		<h1>You&lsquo;re about to create a meeting</h1>
+		<p>Please describe your meeting briefly. Choose your words wisely because they can&lsquo;t be changed later</p>
 		<Textfield2 buf={ti} setBuf={setTi} label="Title" maxlen={80} rows={1} cols={60} dis={dis} />
 		<Textfield2 buf={de} setBuf={setDe} label="Description" maxlen={640} rows={10} cols={60} dis={dis} />
 		<br/>
