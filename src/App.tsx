@@ -48,11 +48,20 @@ interface Meeting {
 	descr: string;
 	from: Date;
 	to: Date;
+	mtime: Date;
 }
 
 interface MeetingResponse {
 	meeting: Meeting;
 	users: UserAvailab[];
+}
+
+function unfuck_dates(m: Meeting) {
+	return {...m,
+		from:new Date(m.from), // must convert string->date because typescript types are LIES
+		to:new Date(m.to),
+		mtime:new Date(m.mtime),
+	};
 }
 
 class MeetingData {
@@ -67,6 +76,7 @@ class MeetingData {
 			descr: "pls pick times on weekend",
 			from: add_days(t0, -14),
 			to: add_days(t0, 21),
+			mtime: new Date(),
 		};
 		this.users = new Map<string, UserAvailabT[]>();
 	}
@@ -112,7 +122,7 @@ class MeetingData {
 	}
 
 	print() {
-		console.log("Meeting", this.meeting.id, 'with', this.users.size, 'users');
+		console.log("Meeting", this.meeting.id, 'with', this.users.size, 'users, mtime:', this.meeting.mtime);
 		for(const [name, t] of this.users) {
 			console.log("Available times for user", name);
 			print_intervals(t);
@@ -122,7 +132,7 @@ class MeetingData {
 	}
 
 	eat(m: MeetingResponse) {
-		this.meeting = {...m.meeting, from:new Date(m.meeting.from), to:new Date(m.meeting.to)};
+		this.meeting = unfuck_dates(m.meeting);
 		this.users = new Map<string, UserAvailabT[]>();
 		if (m.users) {
 			for(const ua of m.users) {
@@ -149,7 +159,7 @@ async function get_newly_created_meeting(x,setErr):MeetingData {
 	check_request_ok(x,setErr);
 	const j:Meeting = JSON.parse(await x.text());
 	let me = new MeetingData(j.id);
-	me.meeting = j;
+	me.meeting = unfuck_dates(j);
 	return me;
 }
 
