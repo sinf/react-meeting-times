@@ -757,7 +757,7 @@ function CalendarWidget(props) {
 		a();
 
 		// periodic auto fetch
-		setTimeout(() => setPollnr(pollnr + 1), 5000);
+		setTimeout(() => setPollnr(pollnr + 1), 10000);
 	};
 
 	// fetch new data whenever pollnr is incremented setPollnr(pollnr + 1);
