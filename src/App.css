@@ -12,8 +12,9 @@ button {
 }
 
 .App {
-	margin: 0.1em auto 0.1em auto;
+	margin: 0.1em auto 5em auto;
 	text-align: center;
+	max-width: 70em;
 }
 
 a {
@@ -246,6 +247,8 @@ nav li {
 .status-msg {
 	margin: 0 0 0.2em 0;
 	display: inline-block;
+	height: 1.5em;
+	width: 20em;
 }
 
 .columns-container {
