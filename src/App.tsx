@@ -712,6 +712,26 @@ function is_valid_username(x) {
 	return x !== undefined && x.trim().length > 0;
 }
 
+function LoginScreen({user, setUser}) {
+	const u = user || get_saved_user() || "";
+	return (
+	<div className="username-wrap">
+		<p>You need to choose a username. This shall be saved in local storage</p>
+		<Textfield
+			id="login-username"
+			key={u}
+			text={u}
+			setText={setUser}
+			canEdit={true}
+			setEdit={b => 5}
+			label="Username"
+			maxlen={28}
+			validate={is_valid_username}
+			/>
+	</div>
+	);
+}
+
 function ERrorScreeN() {
 	return (
 	<div>
@@ -1052,7 +1072,9 @@ function CalendarWidget(props) {
 		</div>
 	);
 
-	return no_meeting ? <ERrorScreeN /> : the_big_thing;
+	const the_small_thing = <LoginScreen user={user} setUser={setUser} /> ;
+
+	return no_meeting ? <ERrorScreeN /> : (no_user ? the_small_thing : the_big_thing);
 }
 
 function NewMeetingDialog({setid}) {
