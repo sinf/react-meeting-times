@@ -128,6 +128,7 @@ class MeetingData {
 			print_intervals(t);
 			console.log();
 		}
+		console.log('mtime', this.meeting.mtime);
 		console.log();
 	}
 
@@ -650,6 +651,7 @@ function App(props) {
 	let [cursor,setCursor1] = React.useState(new Date());
 	let [hoverX,setHoverX] = React.useState([-1,-1,-1,undefined,undefined]);
 
+	let [mtime,set_mtime] = React.useState(new Date('2020'));
 	let [me,setMe] = React.useState(new MeetingData(1));
 	let [pollnr,setPollnr] = React.useState(0);
 
@@ -663,14 +665,30 @@ function App(props) {
 	const me_id = 1;//me.meeting.id;
 	let poll_me = () => {
 		const a = async () => {
-			var md:MeetingData = await fetch_meeting(me_id, setErr);
+			if (state == EDIT_TIME) {
+				return;
+			}
+			let md:MeetingData = await fetch_meeting(me_id, setErr);
 			if (md!==undefined) {
-				setMe(md);
-				resetTsCache();
-				setOk('updated meeting data');
+				const new_mtime = md.meeting.mtime;
+				if (new_mtime <= mtime) {
+					if (new_mtime.toISOString() == mtime.toISOString()) {
+						setOk('updated meeting data');
+					} else {
+						console.log('ignoring obsolete meeting data', new_mtime, 'vs current', mtime);
+					}
+				} else {
+					set_mtime(new_mtime);
+					setMe(md);
+					resetTsCache();
+					setOk('updated meeting data');
+				}
 			}
 		};
 		a();
+
+		// periodic auto fetch
+		setTimeout(() => setPollnr(pollnr + 1), 5000);
 	};
 
 	// fetch new data whenever pollnr is incremented setPollnr(pollnr + 1);
