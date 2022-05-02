@@ -2,7 +2,7 @@
 	box-sizing: content-box;
 }
 html {
-	background: black;
+	background: #202124;
 	color: white;
 	scrollbar-gutter: stable;
 }
@@ -17,7 +17,8 @@ button {
 }
 
 a {
-	background: white;
+	font-weight: bold;
+	background: #BCC0C3;
 	border-radius: 0.2em;
 	padding: 0.1em 0.2em 0.1em 0.2em;
 	margin: 0 0.2em 0 0.2em;
