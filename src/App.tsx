@@ -700,6 +700,29 @@ function WysiwygLink({url}:{url:string}) {
 	return <a href={url}>{url}</a>;
 }
 
+function get_saved_user() {
+	return localStorage.getItem('username');
+}
+
+function set_saved_user(x:string) {
+	localStorage.setItem('username', x);
+}
+
+function is_valid_username(x) {
+	return x !== undefined && x.trim().length > 0;
+}
+
+function ERrorScreeN() {
+	return (
+	<div>
+		<h1>Whoopsy daisies</h1>
+		<p>Meeting does not exist</p>
+		<p>Try hacking the URL bar content into a valid address</p>
+		<p>Or maybe create a <a href={FRONTEND}>new meeting</a>?</p>
+	</div>
+	);
+}
+
 function CalendarWidget(props) {
 	const me_id = props.the_meeting_id;
 	const debug_mode = check_debug_mode();
