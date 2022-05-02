@@ -64,6 +64,21 @@ function unfuck_dates(m: Meeting) {
 	};
 }
 
+function check_debug_mode() {
+	return window?.location?.search?.indexOf("debug") >= 0;
+}
+
+function debug_fetch(url, stuff_and_crap) {
+	if (!check_debug_mode()) {
+		return fetch(url, stuff_and_crap);
+	}
+	// simulate lots of latency
+	const d = 5000;
+	return new Promise((ok,fail) =>
+		setTimeout(() => fetch(url, stuff_and_crap).then(ok).catch(fail), d)
+	);
+}
+
 class MeetingData {
 	meeting: Meeting;
 	users: Map<string, UserAvailabT[]>;
@@ -170,7 +185,7 @@ async function create_meeting(m:Meeting, setErr):MeetingData {
 	console.log("try to create meeting", u);
 	console.log(b);
 	setErr('requested creation of new meeting');
-	return fetch(u, {method:'POST', body: b})
+	return debug_fetch(u, {method:'POST', body: b})
 		.then((x) => get_newly_created_meeting(x,setErr))
 		.catch(err => {
 			console.log('oopsy when creating meeting', m.id+':\n', err);
@@ -189,7 +204,7 @@ function fetch_meeting(meeting_id:number, setErr):MeetingData {
 	let u = make_backend_url('meeting/' + meeting_id);
 	console.log("start fetching meeting", u);
 	setErr('requested data');
-	return fetch(u)
+	return debug_fetch(u)
 		.then((x) => parsulate_json_meeting_get_respose_function_thingy_123(x,setErr))
 		.catch(err => {
 			console.log('oopsy w/ meeting', meeting_id+':\n', err);
@@ -205,7 +220,7 @@ function update_meeting_t(ua:UserAvailab, setErr):MeetingData {
 	console.log("update meeting", u, 'id:', id, "user:", ua.username, "rows:", ua.T.length);
 	setErr('push update');
 
-	return fetch(u, {method:'POST', body: b})
+	return debug_fetch(u, {method:'POST', body: b})
 		.then((x) => parsulate_json_meeting_get_respose_function_thingy_123(x,setErr))
 		.catch(err => console.log('oopsy w/ meeting', id+':\n', err));
 }
@@ -548,7 +563,7 @@ function get_meeting_id():number {
 }
 
 const WeekNavButs = (
-{cursor,setCursor}:{cursor:Date,setCursor:Object}
+{cursor,setCursor,dis}:{cursor:Date,setCursor:Object,dis:boolean}
 ) => {
 	return (
    <div className="weekNav">
@@ -557,12 +572,15 @@ const WeekNavButs = (
 		</div>
 		<button
 			onClick={(e) => setCursor(add_days(cursor, -7))}
+			disabled={dis}
 			>&lt;- Go that way</button>
 		<button
 			onClick={(e) => setCursor(new Date())}
+			disabled={dis}
 			>Go to present</button>
 		<button
 			onClick={(e) => setCursor(add_days(cursor, 7))}
+			disabled={dis}
 			>Go this way -&gt;</button>
 	</div>
 	);
@@ -640,19 +658,24 @@ function uat_to_li(t: UserAvailabT) {
 	);
 }
 
-function App(props) {
-	const VIEW = 0;
-	const EDIT_NAME = 1;
-	const EDIT_TIME = 2;
-	const SEND_TIME = 3;
-	let [state, setState] = React.useState(VIEW);
+function CalendarWidget(props) {
+	const me_id = props.the_meeting_id;
+	const debug_mode = check_debug_mode();
+
+	const INIT = "INIT";
+	const VIEW = "VIEW";
+	const EDIT_NAME = "EDIT_NAME";
+	const EDIT_TIME = "EDIT_TIME";
+	const SEND_TIME = 40;
+
+	let [state, setState] = React.useState(INIT);
 
 	let [user,setUser] = React.useState("test");
 	let [cursor,setCursor1] = React.useState(new Date());
 	let [hoverX,setHoverX] = React.useState([-1,-1,-1,undefined,undefined]);
 
 	let [mtime,set_mtime] = React.useState(new Date('2020'));
-	let [me,setMe] = React.useState(new MeetingData(1));
+	let [me,setMe] = React.useState(undefined);
 	let [pollnr,setPollnr] = React.useState(0);
 
 	let [statusMsg,setStatusMsg] = React.useState("");
@@ -660,9 +683,8 @@ function App(props) {
 	let setOk = setErr;
 
 	// print meeting whenever it is updated
-	React.useEffect(() => me.print(), [me]);
+	React.useEffect(() => me?.print(), [me]);
 
-	const me_id = 1;//me.meeting.id;
 	let poll_me = () => {
 		const a = async () => {
 			if (state == EDIT_TIME) {
@@ -671,17 +693,21 @@ function App(props) {
 			let md:MeetingData = await fetch_meeting(me_id, setErr);
 			if (md!==undefined) {
 				const new_mtime = md.meeting.mtime;
-				if (new_mtime <= mtime) {
+				if (state == INIT || new_mtime > mtime) {
+					if (state == INIT) {
+						setState(VIEW);
+					}
+					set_mtime(new_mtime);
+					setMe(md);
+					me = md;
+					resetTsCache();
+					setOk('updated meeting data');
+				} else {
 					if (new_mtime.toISOString() == mtime.toISOString()) {
-						setOk('updated meeting data');
+						setOk('already up to date');
 					} else {
 						console.log('ignoring obsolete meeting data', new_mtime, 'vs current', mtime);
 					}
-				} else {
-					set_mtime(new_mtime);
-					setMe(md);
-					resetTsCache();
-					setOk('updated meeting data');
 				}
 			}
 		};
@@ -726,8 +752,10 @@ function App(props) {
 	let ts2 = [];
 	if (state != EDIT_TIME) {
 		ts2 = new TimeslotTable2(week_start);
-		ts2.from_meeting(me);
-		inspected_users = ts2.enum_users_range(inspectCells[0], inspectCells[1], 1);
+		if (me) {
+			ts2.from_meeting(me);
+			inspected_users = ts2.enum_users_range(inspectCells[0], inspectCells[1], 1);
+		}
 	}
 
 	function setCursor(x) {
@@ -766,8 +794,7 @@ function App(props) {
 	}
 
 	function endEdit() {
-		setState(VIEW);
-		//setState(SEND_TIME);
+		setState(INIT);
 		if (tsDirty) {
 			setTsDirty(false);
 			console.log("end editing and submit changes");
@@ -778,6 +805,7 @@ function App(props) {
 					setMe(md);
 					setOk('updated meeting data w/ our my edits');
 				}
+				setState(VIEW);
 			});
 		} else {
 			console.log("end editing, no changes");
@@ -790,18 +818,18 @@ function App(props) {
 		setTsDirty(false);
 	}
 
-	const app:HTMLElement = document.getElementById('App');
+	const app:HTMLElement = document.getElementById('CalendarRoot');
 	let app_rect = app?.getBoundingClientRect();
 	if (app_rect === undefined) {
 		app_rect = {left: 0, top: 0};
 	}
 
 	return (
-		<div className="App" id="App">
+		<div className={(state == INIT ? " init":"")} id="CalendarRoot">
 			<div>
 				<div className="tooltip"
 					style={{
-						display: hoverX[0] < 0 ? "none" : "block",
+						display: (state == INIT || hoverX[0] < 0) ? "none" : "block",
 						position: "absolute",
 						left: hoverX[1] - app_rect.left,
 						top: hoverX[2] - app_rect.top,
@@ -810,9 +838,9 @@ function App(props) {
 				</div>
 				<div className="calendar-main">
 					{Textfield({text:user,setText:setUser,label:"Username",maxlen:28,
-						canEdit:(state != EDIT_NAME && state == VIEW),edit:(state == EDIT_NAME),
+						canEdit:(state == VIEW),edit:(state == EDIT_NAME),
 						setEdit:(b) => setState(b ? EDIT_NAME : VIEW)})}
-					{WeekNavButs({cursor:cursor,setCursor:setCursor})}
+					{WeekNavButs({cursor:cursor,setCursor:setCursor,dis:!(state==VIEW || state==EDIT_TIME)})}
 					{Hourgrid({cursor:cursor,edit:(state == EDIT_TIME),
 						paint_cells:(from,to,color) => {
 							if (state == EDIT_TIME) {
@@ -831,7 +859,7 @@ function App(props) {
 						hover_at: (i,x,y,a,b) => setHoverX([i,x,y,a,b]),
 					})}
 
-					{(state == EDIT_TIME) ? <div>
+					{(state != EDIT_TIME) ? undefined : <div>
 						<div><button
 						className="clear-timetable"
 						onClick={(e) => {
@@ -847,7 +875,7 @@ function App(props) {
 						> Undo new changes
 						</button></div>
 
-					</div> : undefined}
+					</div>}
 
 					<div><button
 						className="edit-calendar"
@@ -867,31 +895,30 @@ function App(props) {
 						][state == EDIT_TIME ? 1:0]}
 					</button></div>
 
-					<div><button
+					{state != EDIT_TIME ? undefined : <div><button
 						className="discard"
 						onClick={(e) => {
 							if (state == EDIT_TIME) {
 								cancelEdit();
 							}
 						}}
-						style={{visibility:state == EDIT_TIME ? "visible":"hidden"}}
 						>Stop editing and discard my edits
-					</button></div>
+					</button></div>}
 
-					<div><button
-						onClick={ (e) => {
-							console.log('state:', state);
-							console.log('pollnr:', pollnr);
-							console.log('dirty:', tsDirty);
-							console.log('ts2:', ts2);
-							me.print();
-						}}
-						>Debug print</button>
-					</div>
-
+					{!debug_mode ? undefined :
 					<div>
-						<span className="status-msg">{statusMsg}</span>
-					</div>
+						State = {state} <button
+							onClick={ (e) => {
+								console.log('state:', state);
+								console.log('pollnr:', pollnr);
+								console.log('dirty:', tsDirty);
+								console.log('ts2:', ts2);
+								me.print();
+							}}
+							>Debug print</button>
+					</div>}
+
+					<p className="status-msg">{statusMsg}</p>
 
 					{ state == EDIT_TIME ?
 						<div className="time-interval-list">
@@ -916,6 +943,13 @@ function App(props) {
 			</div>
 		</div>
 	);
+}
+
+function App(props) {
+	let [id, setid] = React.useState(1);
+	return <div className={"App" + (check_debug_mode() ? " debug" : "")}>
+		<CalendarWidget key={id} the_meeting_id={id} />
+	</div>;
 }
 
 export default App;

@@ -12,10 +12,15 @@ button {
 .App {
 	margin: 0.5em auto 0.5em auto;
 	text-align: center;
-	position: relative;
 }
 
-.calendar-main {
+#CalendarRoot {
+	position: relative;
+	max-width: 30em;
+	margin: auto;
+}
+
+.debug .calendar-main {
 	border: 1px solid blue;
 }
 
@@ -25,6 +30,29 @@ table.calendar {
 }
 .calendar, .calendar * {
 	pointer-events: none;
+}
+.init .calendar:before {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: black;
+	opacity: 0.7;
+	z-index: 10;
+	border-radius: 1em;
+}
+.init .calendar:after {
+	content: 'Loading...';
+	font-size: 300%;
+	color: white;
+	z-index: 20;
+	position: absolute;
+	top: 50%;
+	top: calc(50% - 1em/2);
+	left: 50%;
+	left: calc(50% - 7em/4);
 }
 
 .calendar th.day {
