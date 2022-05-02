@@ -13,6 +13,10 @@ function make_backend_url(endpoint: string) {
 	return 'http://localhost:9080/' + endpoint;
 }
 
+function get_meeting_url(id) {
+	return 'http://localhost:3000/' + id;
+}
+
 interface CalendarProps {
 	t_initial: Date;
 	username?: string;
@@ -590,7 +594,7 @@ const Textfield = (
 {text,setText,label,maxlen,canEdit,edit,setEdit}
 ) => {
 	let [buf,setBuf] = React.useState(undefined);
-	let id = label;
+	let id = "textfield-" + label;
 
 	if (edit) {
 		return (<div className="textfield">
@@ -610,7 +614,7 @@ const Textfield = (
 		</div>);
 	} else {
 		return (<div className="textfield">
-			<label>Username: </label>
+			<label>{label}: </label>
 			<span id={id}>{text}</span>
 			<span> </span>
 			<button
@@ -622,6 +626,32 @@ const Textfield = (
 				>Edit</button>
 		</div>);
 	}
+};
+
+const Textfield2 = (
+{buf,setBuf,label,maxlen,rows,cols,dis}
+) => {
+	let id = "textfield2-" + label;
+	return <div className="textfield">
+    	<label htmlFor={id}>{label}: </label><br/>
+    	{rows == 1 ?
+    		<input type="text"
+    			id={id} name={id} type="text"
+    			value={buf}
+    			cols={cols}
+    			onChange={(e) => setBuf(e.target.value)}
+    			maxLength={maxlen}
+    			disabled={dis} />
+    	:
+    		<textarea
+    			id={id} name={id} type="text"
+    			rows={rows} cols={cols}
+    			value={buf}
+    			onChange={(e) => setBuf(e.target.value)}
+    			maxLength={maxlen}
+    			disabled={dis} />
+    	}
+	</div>;
 };
 
 const ToggleBut = (
@@ -658,6 +688,17 @@ function uat_to_li(t: UserAvailabT) {
 	);
 }
 
+function set_title(id?:number, title?:string):string {
+	let t = "Meeting timetable" + (!title ? "" : ": " + title);
+	if (t !== document.title) {
+		document.title = t;
+	}
+}
+
+function WysiwygLink({url}:{url:string}) {
+	return <a href={url}>{url}</a>;
+}
+
 function CalendarWidget(props) {
 	const me_id = props.the_meeting_id;
 	const debug_mode = check_debug_mode();
@@ -684,6 +725,8 @@ function CalendarWidget(props) {
 
 	// print meeting whenever it is updated
 	React.useEffect(() => me?.print(), [me]);
+
+	set_title(me_id, me?.meeting?.title);
 
 	let poll_me = () => {
 		const a = async () => {
@@ -826,6 +869,14 @@ function CalendarWidget(props) {
 
 	return (
 		<div className={(state == INIT ? " init":"")} id="CalendarRoot">
+			{state != INIT ? undefined :
+				<div className="loading-overlay">
+					<div>
+						<h1>Loading...</h1>
+						<p className="status-msg">{statusMsg}</p>
+					</div>
+				</div>
+			}
 			<div>
 				<div className="tooltip"
 					style={{
@@ -836,20 +887,33 @@ function CalendarWidget(props) {
 					}}>
 					{TooltipContent({i:hoverX[0], a:hoverX[3], b:hoverX[4]})}
 				</div>
+				<div>
+					<h1>{me?.meeting?.title}</h1>
+					<p>{me?.meeting?.descr}</p>
+					<p>Link to this meeting
+						<WysiwygLink url={get_meeting_url(me?.meeting?.id)} />
+					</p>
+				</div>
 				<div className="calendar-main">
 					{Textfield({text:user,setText:setUser,label:"Username",maxlen:28,
 						canEdit:(state == VIEW),edit:(state == EDIT_NAME),
-						setEdit:(b) => setState(b ? EDIT_NAME : VIEW)})}
+						setEdit:(b) => {
+							setState(b ? EDIT_NAME : VIEW);
+							if (b) setInspectCells([-1,-1]);
+						}})}
 					{WeekNavButs({cursor:cursor,setCursor:setCursor,dis:!(state==VIEW || state==EDIT_TIME)})}
 					{Hourgrid({cursor:cursor,edit:(state == EDIT_TIME),
-						paint_cells:(from,to,color) => {
-							if (state == EDIT_TIME) {
-								setTs(ts.paint(from, to, color));
-								setTsDirty(true);
-							} else {
-								setInspectCells([from, to]);
+						paint_cells:
+							(state == EDIT_TIME || state == VIEW)
+							? (from,to,color) => {
+								if (state == EDIT_TIME) {
+									setTs(ts.paint(from, to, color));
+									setTsDirty(true);
+								} else if (state == VIEW) {
+									setInspectCells([from, to]);
+								}
 							}
-						},
+							: undefined,
 						cell_class:
 							state == EDIT_TIME
 							? (i) => "color" + ts.ts[i]
@@ -858,24 +922,6 @@ function CalendarWidget(props) {
 							,
 						hover_at: (i,x,y,a,b) => setHoverX([i,x,y,a,b]),
 					})}
-
-					{(state != EDIT_TIME) ? undefined : <div>
-						<div><button
-						className="clear-timetable"
-						onClick={(e) => {
-							setTsCache(new Map<string,TimeslotTable>());
-						}}
-						> Clear my timetable
-						</button></div>
-
-						<div><button
-						className="reset-timetable"
-						onClick={(e) => resetTsCache()}
-						disabled={!tsDirty}
-						> Undo new changes
-						</button></div>
-
-					</div>}
 
 					<div><button
 						className="edit-calendar"
@@ -924,6 +970,21 @@ function CalendarWidget(props) {
 						<div className="time-interval-list">
 							<div className="title">{uat.length > 0 ? "I'm available on" : howto}</div>
 							<ul className="userTimeList">{uat.map(uat_to_li)}</ul>
+							<div className="alright">
+								<button
+									className="clear-timetable"
+									onClick={(e) => {
+										setTsCache(new Map<string,TimeslotTable>());
+										setTsDirty(true);
+									}}
+									disabled={uat.length == 0}
+									> Clear my timetable </button>
+								<button
+									className="reset-timetable"
+									onClick={(e) => resetTsCache()}
+									disabled={!tsDirty}
+									> Undo </button>
+							</div>
 						</div>
 						:
 						inspectCells[0] < 0 ? undefined :
@@ -936,7 +997,9 @@ function CalendarWidget(props) {
 							<ul className="inline-list">
 							{inspected_users.map((name) => <li key={name}>{name}</li>)}
 							</ul>
-							<button onClick={(e) => setInspectCells([-1,-1])}>Ok whatever</button>
+							<div className="alright">
+								<button onClick={(e) => setInspectCells([-1,-1])}>Ok whatever</button>
+							</div>
 						</div>
 					}
 				</div>
@@ -945,10 +1008,73 @@ function CalendarWidget(props) {
 	);
 }
 
+function NewMeetingDialog({setid}) {
+	let [ti,setTi] = React.useState("our meeting");
+	let [de,setDe] = React.useState("discuss ABC for the class XYZ");
+	let [sent,setSent] = React.useState(false);
+	let [err,setErr] = React.useState("");
+	const dis = sent;
+	return <div className="new-meeting-form">
+		<h1>You&lsquo;re about to to create a meeting</h1>
+		<p>Please type some words. It is nice to tell which meeting the people are joining</p>
+		<Textfield2 buf={ti} setBuf={setTi} label="Title" maxlen={80} rows={1} cols={60} dis={dis} />
+		<Textfield2 buf={de} setBuf={setDe} label="Description" maxlen={640} rows={10} cols={60} dis={dis} />
+		<br/>
+		<button
+			onClick={(e) => {
+				setSent(true);
+
+				let now = new Date();
+				let end = add_days(now, 90);
+				let me:Meeting = {
+					title: ti,
+					descr: de,
+					from: now,
+					to: end,
+				};
+				create_meeting(me, setErr)
+					.then((md) => setid(md.meeting.id))
+					.catch(() => setSent(false)) ;
+			}}
+			disabled={dis}
+			>Create meeting</button>
+		{!sent ? undefined :
+			<p>
+				Requested to create a new meeting. Please wait while the server is mucking about.
+				You will be transferred to the meeting calendar hopefully soon
+			</p>
+		}
+		{!err? undefined : <p>Error: {err}</p> }
+	</div>;
+}
+
 function App(props) {
-	let [id, setid] = React.useState(1);
+	let [id, setid] = React.useState(-1);
+	let p = window.location.pathname.replace(/\//gm, '');
+
+	React.useEffect(() => {
+		if (id < 0) {
+			set_title(id,"");
+		}
+	}, [id]);
+
+	if (/^\d+$/.test(p)) {
+		const i = parseInt(p);
+		if (i != id) {
+			console.log('path name looks like a number', window.location.pathname);
+			setid(id = i);
+		}
+	}
+
 	return <div className={"App" + (check_debug_mode() ? " debug" : "")}>
-		<CalendarWidget key={id} the_meeting_id={id} />
+		{id < 0 ?
+			<NewMeetingDialog setid={(x) => {
+				setid(x);
+				window.history.pushState("","","/"+x);
+			}} />
+		:
+			<CalendarWidget key={id} the_meeting_id={id} />
+		}
 	</div>;
 }
 
