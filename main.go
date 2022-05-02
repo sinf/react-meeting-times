@@ -225,7 +225,7 @@ func (a *App) CreateMeetingR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if checkStr(w, "title", m.Title, 1, 80) || checkStr(w, "descr", m.Descr, 0, 300) {
+	if checkStr(w, "title", m.Title, 3, 80) || checkStr(w, "descr", m.Descr, 0, 640) {
 		return
 	}
 
