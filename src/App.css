@@ -242,7 +242,7 @@ nav li {
 	min-height: 1.8em;
 }
 .textfield {
-	height: 1em;
+	min-height: 1em;
 }
 .status-msg {
 	margin: 0 0 0.2em 0;

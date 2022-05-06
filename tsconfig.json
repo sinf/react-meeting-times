@@ -6,6 +6,7 @@
       "dom.iterable",
       "esnext"
     ],
+    "sourceMap": true,
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -17,8 +18,8 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "downLevelIteration": true,
-    "noEmit": true,
+    "downlevelIteration": true,
+    "noEmit": false,
     "jsx": "react-jsx"
   },
   "include": [
