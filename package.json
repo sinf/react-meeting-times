@@ -6,7 +6,7 @@
   "author": "ArhoM",
   "license": "ISC",
   "scripts": {
-    "start": "webpack-dev-server --mode=development --hot --static-watch --live-reload --client-overlay --client-progress --port 3000",
+    "start": "webpack-dev-server --mode=development --hot --static-watch --live-reload --client-overlay --client-progress --port 3000 --history-api-fallback",
     "build": "webpack --mode=production",
     "test": "echo Tests totally OK"
   },
