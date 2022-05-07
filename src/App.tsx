@@ -19,7 +19,7 @@ type SetDateFn = (x: Date) => any;
 function make_backend_url(endpoint:string):string { return BACKEND + endpoint; }
 function encode_meeting_id(i:number):number { return i; }
 function decode_meeting_id(i:number):number { return i; }
-function get_meeting_path(id:number):string { return encode_meeting_id(id).toString(); }
+function get_meeting_path(id:number):string { return "?meeting=" + encode_meeting_id(id).toString(); }
 function get_meeting_url(id:number):string { return FRONTEND + get_meeting_path(id); }
 
 interface CalendarProps {
@@ -1174,7 +1174,7 @@ function NewMeetingDialog({setid}:{setid:SetNumberFn}):JSX.Element {
 		<br/>
 		<button
 			disabled={dis}
-			onClick={(e) => alert("Nothing happened!")}
+			//onClick={(e) => alert("Nothing happened!")}
 			>Don&lsquo;t create meeting</button>
 		<button
 			onClick={(e) => {
@@ -1209,9 +1209,16 @@ function NewMeetingDialog({setid}:{setid:SetNumberFn}):JSX.Element {
 	</div>;
 }
 
-function App(props:any) {
+function MeetingPageN({id}:{id:number}):JSX.Element {
+	// unique key causes useState()s to be forgotten when navigating to new meeting
+	return <CalendarWidget key={id} me_id={id} />;
+}
+
+function App(props:any):JSX.Element {
 	let [id, setid] = React.useState<number>(-1);
-	let p = window.location.pathname.replace(/\//gm, '');
+	let p = window?.location?.search?.match(/[?&]meeting=([0-9]+)/);
+
+	console.log(p);
 
 	React.useEffect(() => {
 		if (id < 0) {
@@ -1219,24 +1226,26 @@ function App(props:any) {
 		}
 	}, [id]);
 
-	if (/^\d+$/.test(p)) {
-		const i = decode_meeting_id(parseInt(p));
+	if (p && p.length == 2 && /^\d+$/.test(p[1])) {
+		const i = decode_meeting_id(parseInt(p[1]));
 		if (i != id) {
-			console.log('path name looks like a number', window.location.pathname);
+			console.log('looks like you have id in a url parameter', p[1]);
 			setid(id = i);
 		}
 	}
 
-	return <main className={"App" + (check_debug_mode() ? " debug" : "")}>
-		{id < 0 ?
-			<NewMeetingDialog setid={(x:number) => {
-				setid(x);
-				window.history.pushState("","","/"+get_meeting_path(x));
-			}} />
-		:
-			<CalendarWidget key={id} me_id={id} />
-		}
-	</main>;
+	return (
+		<main className={"App" + (check_debug_mode() ? " debug" : "")}>
+			{id < 0 ?
+				<NewMeetingDialog setid={(x:number) => {
+					setid(x);
+					window.history.pushState("","","/"+get_meeting_path(x));
+				}} />
+			:
+				<MeetingPageN id={id} />
+			}
+		</main>
+	);
 }
 
 export default App;
