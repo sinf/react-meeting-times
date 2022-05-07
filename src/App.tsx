@@ -1,6 +1,5 @@
-// vim: set syntax=javascript:
+// vim: set syntax=javascript :
 import React from 'react';
-import logo from './logo.svg';
 import './App.css';
 
 const TIMESLOTS_HOUR = 2;
@@ -12,11 +11,16 @@ const FIRST_VISIBLE_TIMESLOT = 6*TIMESLOTS_HOUR;
 const BACKEND = 'http://localhost:9080/';
 const FRONTEND = 'http://localhost:3000/';
 
-function make_backend_url(endpoint: string) { return BACKEND + endpoint; }
-function encode_meeting_id(i) { return i; }
-function decode_meeting_id(i) { return i; }
-function get_meeting_path(id) { return encode_meeting_id(id); }
-function get_meeting_url(id) { return FRONTEND + get_meeting_path(id); }
+type SetNumberFn = (x: number) => any;
+type SetStringFn = (x: string) => any;
+type SetBooleanFn = (x: boolean) => any;
+type SetDateFn = (x: Date) => any;
+
+function make_backend_url(endpoint:string):string { return BACKEND + endpoint; }
+function encode_meeting_id(i:number):number { return i; }
+function decode_meeting_id(i:number):number { return i; }
+function get_meeting_path(id:number):string { return encode_meeting_id(id).toString(); }
+function get_meeting_url(id:number):string { return FRONTEND + get_meeting_path(id); }
 
 interface CalendarProps {
 	t_initial: Date;
@@ -61,7 +65,7 @@ interface MeetingResponse {
 	users: UserAvailab[];
 }
 
-function unfuck_dates(m: Meeting) {
+function unfuck_dates(m: Meeting):Meeting {
 	return {...m,
 		from:new Date(m.from), // must convert string->date because typescript types are LIES
 		to:new Date(m.to),
@@ -69,18 +73,18 @@ function unfuck_dates(m: Meeting) {
 	};
 }
 
-function check_debug_mode() {
+function check_debug_mode():boolean {
 	return window?.location?.search?.indexOf("debug") >= 0;
 }
 
-function debug_fetch(url, stuff_and_crap) {
+function debug_fetch(url:string, stuff_and_crap:any = {}):Promise<Response> {
 	if (!check_debug_mode()) {
 		return fetch(url, stuff_and_crap);
 	}
 	// simulate lots of latency
 	const d = 5000;
-	return new Promise((ok,fail) =>
-		setTimeout(() => fetch(url, stuff_and_crap).then(ok).catch(fail), d)
+	return new Promise<Response>((ok,fail) =>
+		setTimeout((() => fetch(url, stuff_and_crap).then(ok).catch(fail)), d)
 	);
 }
 
@@ -103,19 +107,20 @@ class MeetingData {
 
 	active_weeks_of_user(user: string): string[] {
 		let w = new Set<string>();
-		if (this.users.has(user)) {
-			for(const tv of this.users.get(user)) {
+		if (this.users?.has(user)) {
+			let uu:UserAvailabT[] = this.users.get(user) || [];
+			for(const tv of uu) {
 				w.add(monday(tv.from).toISOString());
 			}
 		}
-		return w.values();
+		return Array.from(w.values());
 	}
 
 	// get timeslot table of user for week
 	gtstoufw(user: string, from:Date): TimeslotTable {
 		let tab:TimeslotTable = new TimeslotTable(from);
 		if (this.users.has(user)) {
-			tab.from_intervals(this.users.get(user));
+			tab.from_intervals(this.users.get(user) || []);
 		} else {
 			console.log('user not found', user);
 		}
@@ -125,7 +130,7 @@ class MeetingData {
 	copy():MeetingData {
 		let m = new MeetingData(this.meeting.id);
 		m.meeting = this.meeting;
-		m.users = new Map <string, UserAvailab[]>(this.users);
+		m.users = new Map<string, UserAvailabT[]>(this.users);
 		return m;
 	}
 
@@ -167,57 +172,57 @@ class MeetingData {
 	}
 }
 
-async function check_request_ok(x,setErr) {
+async function get_body(x:Response,setErr:SetStringFn):Promise<string> {
+	let body = x.text();
 	if (!x.ok) {
-		let t:string = await x.text();
-		t = "got non-OK response: " + t;
+		let t = "got non-OK response: " + await body;
 		setErr(t);
 		throw new Error(t);
 	}
+	return body;
 }
 
-async function get_newly_created_meeting(x,setErr):MeetingData {
-	check_request_ok(x,setErr);
-	const j:Meeting = JSON.parse(await x.text());
+function get_newly_created_meeting(x:string,setErr:SetStringFn):MeetingData {
+	const j:Meeting = JSON.parse(x);
 	let me = new MeetingData(j.id);
 	me.meeting = unfuck_dates(j);
 	return me;
 }
 
-async function create_meeting(m:Meeting, setErr):MeetingData {
+async function create_meeting(m:Meeting, setErr:SetStringFn):Promise<MeetingData> {
 	const u = make_backend_url('create');
 	const b = JSON.stringify(m);
 	console.log("try to create meeting", u);
 	console.log(b);
 	setErr('requested creation of new meeting');
-	return debug_fetch(u, {method:'POST', body: b})
-		.then((x) => get_newly_created_meeting(x,setErr))
-		.catch(err => {
-			console.log('oopsy when creating meeting', m.id+':\n', err);
-		});
+	let r = await debug_fetch(u, {method:'POST', body: b});
+	let body = await get_body(r, setErr);
+	return get_newly_created_meeting(body, setErr);
 }
 
-async function parsulate_json_meeting_get_respose_function_thingy_123(x,setErr):MeetingData {
-	check_request_ok(x,setErr);
-	const j:MeetingResponse = JSON.parse(await x.text());
+function parsulate_json_meeting_get_respose_function_thingy_123(body:string,setErr:SetStringFn):MeetingData {
+	const j:MeetingResponse = JSON.parse(body);
 	let me = new MeetingData(j.meeting.id);
 	me.eat(j);
 	return me;
 }
 
-function fetch_meeting(meeting_id:number, setErr):MeetingData {
+async function fetch_meeting(meeting_id:number, setErr:SetStringFn):Promise<MeetingData|undefined> {
 	let u = make_backend_url('meeting/' + meeting_id);
 	console.log("start fetching meeting", u);
 	setErr('requested data');
-	return debug_fetch(u)
-		.then((x) => parsulate_json_meeting_get_respose_function_thingy_123(x,setErr))
-		.catch(err => {
-			console.log('oopsy w/ meeting', meeting_id+':\n', err);
-			setErr('request failed: ' + err.message);
-		});
+	try {
+		let r = await debug_fetch(u);
+		let b = await get_body(r, setErr);
+		return parsulate_json_meeting_get_respose_function_thingy_123(b,setErr);
+	} catch(err) {
+		console.log('oopsy w/ meeting', meeting_id+':\n', err);
+		setErr('request failed: ??');// + err.message);
+		return undefined;
+	}
 }
 
-function update_meeting_t(ua:UserAvailab, setErr):MeetingData {
+async function update_meeting_t(ua:UserAvailab, setErr:SetStringFn):Promise<MeetingData> {
 	const id = ua.meeting;
 	const u = make_backend_url('update');
 	const b = JSON.stringify(ua);
@@ -225,9 +230,10 @@ function update_meeting_t(ua:UserAvailab, setErr):MeetingData {
 	console.log("update meeting", u, 'id:', id, "user:", ua.username, "rows:", ua.T.length);
 	setErr('push update');
 
-	return debug_fetch(u, {method:'POST', body: b})
-		.then((x) => parsulate_json_meeting_get_respose_function_thingy_123(x,setErr))
-		.catch(err => console.log('oopsy w/ meeting', id+':\n', err));
+	let r = await debug_fetch(u, {method:'POST', body: b});
+	let body = await get_body(r, setErr);
+	return parsulate_json_meeting_get_respose_function_thingy_123(body, setErr);
+//		.catch(err => console.log('oopsy w/ meeting', id+':\n', err));
 }
 
 function day_title(da: Date):string {
@@ -240,7 +246,7 @@ function DDMM(da: Date):string {
 	return `${dd}.${mm}.`;
 }
 
-function day_title_tag(da: Date) {
+function day_title_tag(da: Date):JSX.Element {
 	let wd = day_title(da);
 	return (<div>
 		<div>{wd} </div>
@@ -249,7 +255,8 @@ function day_title_tag(da: Date) {
 }
 
 function padzero2(x:number):string {
-	return x < 10 ? "0" + x : x;
+	let xs = x.toString();
+	return x < 10 ? "0" + xs : xs;
 }
 
 function HHMM_1(h:number, m:number):string {
@@ -351,33 +358,51 @@ function ranges_to_timeslots(t_start: Date, timeslots: number[], time_ranges: Us
 	}
 }
 
+interface HoverAt {
+	i: number; // hovered cell
+	x: number; // cursor x coord
+	y: number; // cursor y coord
+	a?: number; // first cell
+	b?: number; // last cell
+	ok: boolean;
+}
+
 const Hourgrid = (
 {cursor,paint_cells,edit,hover_at,cell_class}
+:{
+	cursor:Date,
+	paint_cells?:(from:number, to:number, direction:number) => void,
+	edit:boolean,
+	hover_at:(h:HoverAt) => void,
+	cell_class:(cell:number) => string
+}
 ) => {
 	const day_start:Date[] = get_week_days(cursor);
 	const today = new Date();
-	const render_hour_label =
-		(h, k) => <td key={k} className="hourlabel">{h/TIMESLOTS_HOUR}</td>;
-	let [dragA,setDragA] = React.useState(undefined);
-	let [dragB,setDragB] = React.useState(undefined);
-	const dragMin = Math.min(dragA,dragB);
-	const dragMax = Math.max(dragA,dragB);
-	const begin_drag = (i) => {
+	let [dragA,setDragA] = React.useState<number|undefined>(undefined);
+	let [dragB,setDragB] = React.useState<number|undefined>(undefined);
+	const dragMin:number = Math.min(dragA||-1,dragB||-1);
+	const dragMax:number = Math.max(dragA||-1,dragB||-1);
+
+	function render_hour_label(h:number, k:string):JSX.Element {
+		return <td key={k} className="hourlabel">{h/TIMESLOTS_HOUR}</td>;
+	}
+	function begin_drag(i:number) {
 		setDragA(i);
 		setDragB(i);
-	};
-	const update_drag = (i) => {
+	}
+	function update_drag(i:number) {
 		if (dragA !== undefined) {
 			setDragB(i);
 		}
-	};
-	const end_drag = (i) => {
-		if (dragA !== undefined && dragB !== undefined) {
+	}
+	function end_drag(i:number) {
+		if (dragA !== undefined && dragB !== undefined && paint_cells) {
 			paint_cells(dragMin, dragMax, dragA == dragB ? -1 : (dragA < dragB ? 1 : 0));
 		}
 		setDragA(undefined);
 		setDragB(undefined);
-	};
+	}
 
 	let rows = [];
 	for(let h=FIRST_VISIBLE_TIMESLOT; h<TIMESLOTS_DAY; h+=TIMESLOTS_HOUR) {
@@ -403,12 +428,12 @@ const Hourgrid = (
 								}
 							}
 							if (hover_at) {
-								hover_at(i, e.clientX, e.clientY, dragA, dragB);
+								hover_at({i:i, x:e.clientX, y:e.clientY, a:dragA, b:dragB, ok:true});
 							}
 						}}
 						onMouseMove={(e) => {
 							if (paint_cells) update_drag(i);
-							if (hover_at) hover_at(i, e.clientX, e.clientY, dragA, dragB);
+							if (hover_at) hover_at({i:i, x:e.clientX, y:e.clientY, a:dragA, b:dragB, ok:true});
 						}}
 						>
 						<div className="hl"/>
@@ -429,7 +454,7 @@ const Hourgrid = (
 	return (
 		<table className="calendar"
 			onMouseLeave={(e) => {
-				if (hover_at) hover_at(-1,0,0);
+				if (hover_at) hover_at({i:-1,x:0,y:0,a:0,b:0,ok:false});
 				if (true) {
 					// interrupt drag. annoying when operating near table edge
 					// but easy fix to issues when user clicks some button while dragging
@@ -568,7 +593,7 @@ function get_meeting_id():number {
 }
 
 const WeekNavButs = (
-{cursor,setCursor,dis}:{cursor:Date,setCursor:Object,dis:boolean}
+{cursor,setCursor,dis}:{cursor:Date,setCursor:SetDateFn,dis:boolean}
 ) => {
 	return (
    <div className="weekNav button-group">
@@ -591,12 +616,22 @@ const WeekNavButs = (
 	);
 }
 
-function Textfield({text,setText,label,maxlen,canEdit,edit,setEdit,validate}) {
-	let [buf,setBuf] = React.useState(undefined);
+interface TextfieldProps {
+	text?: string;
+	setText: SetStringFn;
+	label: string;
+	maxlen: number;
+	canEdit: boolean;
+	edit: boolean;
+	setEdit: SetBooleanFn;
+	validate: (x:string) => [boolean,string];
+}
+function Textfield({text,setText,label,maxlen,canEdit,edit,setEdit,validate}:TextfieldProps):JSX.Element {
+	let [buf1,setBuf] = React.useState<string|undefined>(undefined);
+	let buf:string = buf1 || text || "";
 	let id = "textfield-" + label.replace(' ','-');
 
 	if (edit) {
-		buf = buf || text || "";
 		let [valid,explanation] = validate ? validate(buf) : [true,""];
 		return (<span className="textfield">
     		<label htmlFor={id}>{label}: </label>
@@ -631,41 +666,44 @@ function Textfield({text,setText,label,maxlen,canEdit,edit,setEdit,validate}) {
 	}
 }
 
-const Textfield2 = (
-{buf,setBuf,label,maxlen,rows,cols,dis}
-) => {
+function Textfield2({buf,setBuf,label,maxlen,rows,cols,dis}:
+	{buf:string,setBuf:SetStringFn,label:string,maxlen:number,rows:number,cols:number,dis:boolean}
+):JSX.Element {
 	let id = "textfield2-" + label;
 	return <div className="textfield">
     	<label htmlFor={id}>{label}: </label><br/>
     	{rows == 1 ?
-    		<input type="text"
-    			id={id} name={id} type="text"
+    		<input
+    			type="text"
+    			id={id}
+    			name={id}
     			value={buf}
-    			cols={cols}
     			onChange={(e) => setBuf(e.target.value)}
     			maxLength={maxlen}
     			disabled={dis} />
     	:
     		<textarea
-    			id={id} name={id} type="text"
-    			rows={rows} cols={cols}
+    			id={id}
+    			name={id}
+    			rows={rows}
+    			cols={cols}
     			value={buf}
     			onChange={(e) => setBuf(e.target.value)}
     			maxLength={maxlen}
     			disabled={dis} />
     	}
 	</div>;
-};
+}
 
-const ToggleBut = (
-{state,setState,label,canToggle}:{state:boolean,setState:Object,label:string,canToggle:boolean}
-) => {
+function ToggleBut({state,setState,label,canToggle}:
+	{state:boolean,setState:SetBooleanFn,label:string,canToggle:boolean}
+):JSX.Element {
 	return (
 		<button
-			onClick={(e) => setState(!state)}
+			onClick={(e:any) => setState(!state)}
 			disabled={!canToggle}>{label[state ? 1 : 0]}</button>
 	);
-};
+}
 
 function hour_of_timeslot(i:number):string {
 	i %= TIMESLOTS_DAY;
@@ -681,9 +719,9 @@ They will be painted as "available" if the last clicked time is after the initia
 They will be painted as "unavailable" if the last clicked time is before the initially clicked time.
 `;
 
-function uat_to_li(t: UserAvailabT) {
+function uat_to_li(t: UserAvailabT):JSX.Element {
 	return (
-	<li key={t.from} className="item">
+	<li key={t.from.toISOString()} className="item">
 		<span>{DDMM(t.from)} </span>
 		<span>{day_title(t.from)} </span>
 		<span>{HHMM(t.from)}</span> .. <span> {HHMM(t.to)}</span>
@@ -691,26 +729,26 @@ function uat_to_li(t: UserAvailabT) {
 	);
 }
 
-function set_title(id?:number, title?:string):string {
+function set_title(id?:number, title?:string) {
 	let t = "Meeting timetable" + (!title ? "" : ": " + title);
 	if (t !== document.title) {
 		document.title = t;
 	}
 }
 
-function WysiwygLink({url}:{url:string}) {
+function WysiwygLink({url}:{url:string}):JSX.Element {
 	return <a href={url}>{url}</a>;
 }
 
-function get_saved_user() {
-	return localStorage.getItem('username');
+function get_saved_user():string|undefined {
+	return localStorage.getItem('username') || undefined;
 }
 
 function set_saved_user(x:string) {
 	localStorage.setItem('username', x);
 }
 
-function is_valid_username(x) {
+function is_valid_username(x:string):[boolean,string] {
 	const lmin = 2;
 	const lmax = 28;
 	let ok = true;
@@ -726,19 +764,18 @@ function is_valid_username(x) {
 	return [ok, reason];
 }
 
-function LoginScreen({user, setUser}) {
+function LoginScreen({user,setUser}:{user?:string, setUser:SetStringFn}):JSX.Element {
 	return (
 	<div className="username-wrap">
 		<p>Choose a username</p>
 		<div>
 			<Textfield
-				id="login-username"
 				key="username in login screen"
 				text={user}
 				setText={setUser}
 				edit={true}
 				canEdit={true}
-				setEdit={x => 5}
+				setEdit={(x:boolean) => true}
 				label="Username"
 				maxlen={28}
 				validate={is_valid_username}
@@ -749,7 +786,7 @@ function LoginScreen({user, setUser}) {
 	);
 }
 
-function ERrorScreeN() {
+function ERrorScreeN():JSX.Element {
 	return (
 	<div>
 		<h1>Whoopsy daisies</h1>
@@ -760,21 +797,20 @@ function ERrorScreeN() {
 	);
 }
 
-function CalendarWidget(props) {
-	const me_id = props.the_meeting_id;
+function CalendarWidget({me_id}:{me_id:number}):JSX.Element {
 	const debug_mode = check_debug_mode();
 
 	const INIT = "INIT";
 	const VIEW = "VIEW";
 	const EDIT_NAME = "EDIT_NAME";
 	const EDIT_TIME = "EDIT_TIME";
-	const SEND_TIME = 40;
+	const SEND_TIME = "40";
 
-	let [state, setState] = React.useState(INIT);
+	let [state, setState] = React.useState<string>(INIT);
 
-	let [user,setUser1] = React.useState(get_saved_user() || undefined);
-	const no_user = user === undefined || user.length < 1;
-	function setUser(x) {
+	let [user,setUser1] = React.useState<string|undefined>(get_saved_user());
+	const no_user:boolean = user === undefined || user.length < 1;
+	function setUser(x: string) {
 		if (x !== undefined) {
 			user = x = x.trim();
 			setUser1(x);
@@ -782,18 +818,18 @@ function CalendarWidget(props) {
 		}
 	}
 
-	let [cursor,setCursor1] = React.useState(new Date());
-	let [hoverX,setHoverX] = React.useState([-1,-1,-1,undefined,undefined]);
+	let [cursor,setCursor1] = React.useState<Date>(new Date());
+	let [hoverX,setHoverX] = React.useState<HoverAt>({i:-1,x:0,y:0,a:0,b:0,ok:false});
 
-	let [mtime,set_mtime] = React.useState(new Date('2020'));
-	let [me,setMe] = React.useState(undefined);
-	let [pollnr,setPollnr] = React.useState(0);
+	let [mtime,set_mtime] = React.useState<Date>(new Date('2020'));
+	let [me,setMe] = React.useState<MeetingData|undefined>(undefined);
+	let [pollnr,setPollnr] = React.useState<number>(0);
 
-	let [statusMsg,setStatusMsg] = React.useState("");
-	let setErr = (x) => setStatusMsg('['+HHMMSS(new Date())+'] '+x);
+	let [statusMsg,setStatusMsg] = React.useState<string>("");
+	let setErr = (x:string) => setStatusMsg('['+HHMMSS(new Date())+'] '+x);
 	let setOk = setErr;
 
-	let [no_meeting,set_no_meeting] = React.useState(false);
+	let [no_meeting,set_no_meeting] = React.useState<boolean>(false);
 	if (!no_meeting && statusMsg.indexOf("meeting does not exist") >= 0) {
 		set_no_meeting(no_meeting = true);
 	}
@@ -808,7 +844,7 @@ function CalendarWidget(props) {
 			if (state == EDIT_TIME) {
 				return;
 			}
-			let md:MeetingData = await fetch_meeting(me_id, setErr);
+			let md = await fetch_meeting(me_id, setErr);
 			if (md!==undefined) {
 				const new_mtime = md.meeting.mtime;
 				if (state == INIT || new_mtime > mtime) {
@@ -843,15 +879,18 @@ function CalendarWidget(props) {
 	let [tsCache,setTsCache] = React.useState(new Map<string,TimeslotTable>());
 	const week_start = monday(cursor);
 	const week_id = week_start.toISOString();
-	let setTs = (t) => {
+	let setTs = (t: TimeslotTable) => {
 		tsCache.set(week_id, t);
 		setTsCache(tsCache);
 	};
-	let ts = tsCache.get(week_id);
-	if (ts === undefined) {
-		ts = new TimeslotTable(week_start);
-		setTs(ts);
+
+	function ts_init(old?: TimeslotTable): TimeslotTable {
+		if (old) return old;
+		let t = new TimeslotTable(week_start);
+		setTs(t);
+		return t;
 	}
+	let ts = ts_init(tsCache.get(week_id));
 	let [tsDirty,setTsDirty] = React.useState(false);
 
 	// used while in edit mode. timeslot grid cells converted to ranges
@@ -860,29 +899,29 @@ function CalendarWidget(props) {
 	for(const t of tsCache.values()) {
 		uat = uat.concat(t.to_intervals());
 	}
-	uat = uat.sort((a,b) => a.from-b.from);
+	uat = uat.sort((a:UserAvailabT,b:UserAvailabT) => a.from.valueOf() - b.from.valueOf());
 
 	let [inspectCells,setInspectCells] = React.useState([-1,-1]);
 	let inspected_users:string[] = [];
 
 	// used while not in edit mode. each users name and status inserted into each grid cell
-	let ts2 = [];
+	let ts2 = new TimeslotTable2(week_start);
 	if (state != EDIT_TIME) {
-		ts2 = new TimeslotTable2(week_start);
 		if (me) {
 			ts2.from_meeting(me);
 			inspected_users = ts2.enum_users_range(inspectCells[0], inspectCells[1], 1);
 		}
 	}
 
-	function setCursor(x) {
+	function setCursor(x:Date) {
 		setInspectCells([-1,-1]);
 		setCursor1(x);
 	}
 
 	// i: currently hovered index
  	// (a,b): range of painted cells (while editing)
-	function TooltipContent({i, a, b}) {
+	function TooltipContent():JSX.Element {
+		const i = hoverX.i;
 		const edit = state == EDIT_TIME;
 		return (<div className="tooltip-content">
 			<div className="title">{hour_of_timeslot(i)} - {hour_of_timeslot(i+1)}</div>
@@ -896,10 +935,12 @@ function CalendarWidget(props) {
 
 	function resetTsCache() {
 		setTsDirty(false);
-		// convert current users's time ranges into timeslots for each week
 		let temp = new Map<string,TimeslotTable>();
-		for(const w of me.active_weeks_of_user(user)) {
-			temp.set(w, me.gtstoufw(user, new Date(w)));
+		if (me !== undefined && user !== undefined) {
+			// convert current users's time ranges into timeslots for each week
+			for(const w of me.active_weeks_of_user(user)) {
+				temp.set(w, me.gtstoufw(user, new Date(w)));
+			}
 		}
 		setTsCache(temp);
 	}
@@ -916,6 +957,7 @@ function CalendarWidget(props) {
 			setTsDirty(false);
 			console.log("end editing and submit changes");
 
+			if (user !== undefined)
 			update_meeting_t({meeting: me_id, username: user, T: uat}, setErr)
 			.then((md:MeetingData) => {
 				if (md !== undefined) {
@@ -935,11 +977,11 @@ function CalendarWidget(props) {
 		setTsDirty(false);
 	}
 
-	const app:HTMLElement = document.getElementById('CalendarRoot');
-	let app_rect = app?.getBoundingClientRect();
-	if (app_rect === undefined) {
-		app_rect = {left: 0, top: 0};
-	}
+	const app_rect_1 = document.getElementById('CalendarRoot')?.getBoundingClientRect();
+	const app_rect = {
+		left: app_rect_1?.left || 0,
+		top: app_rect_1?.top || 0,
+	};
 
 	const the_big_thing = (
 		<div className={(state == INIT ? " init":"")} id="CalendarRoot">
@@ -958,7 +1000,7 @@ function CalendarWidget(props) {
 							label={"Username"} maxlen={28}
 							canEdit={state == VIEW}
 							edit={state == EDIT_NAME}
-							setEdit={(b) => {
+							setEdit={(b:boolean) => {
 								setState(b ? EDIT_NAME : VIEW);
 								if (b) setInspectCells([-1,-1]);
 							}}
@@ -974,7 +1016,7 @@ function CalendarWidget(props) {
 								console.log('pollnr:', pollnr);
 								console.log('dirty:', tsDirty);
 								console.log('ts2:', ts2);
-								me.print();
+								me?.print();
 							}}
 							>Debug print</button>
 					</li>}
@@ -994,12 +1036,12 @@ function CalendarWidget(props) {
 
 			<div className="tooltip"
 				style={{
-					display: (state == INIT || hoverX[0] < 0) ? "none" : "block",
+					display: (state == INIT || !hoverX.ok) ? "none" : "block",
 					position: "absolute",
-					left: hoverX[1] - app_rect.left,
-					top: hoverX[2] - app_rect.top,
+					left: hoverX.x - app_rect.left,
+					top: hoverX.y - app_rect.top,
 				}}>
-				{TooltipContent({i:hoverX[0], a:hoverX[3], b:hoverX[4]})}
+				{TooltipContent()}
 			</div>
 
 			<div className="columns-container">
@@ -1091,11 +1133,12 @@ function CalendarWidget(props) {
 							: undefined,
 						cell_class:
 							state == EDIT_TIME
-							? (i) => "color" + ts.ts[i]
-							: (i) => "color" + Math.min(ts2.num_users(i),5)
-								+ ( i >= inspectCells[0] && i <= inspectCells[1] ? " inspect" : "")
-							,
-						hover_at: (i,x,y,a,b) => setHoverX([i,x,y,a,b]),
+							? ((i:number) => "color" + ts.ts[i])
+							: ((i:number) => {
+								return "color" + Math.min(ts2.num_users(i),5)
+									+ ( i >= inspectCells[0] && i <= inspectCells[1] ? " inspect" : "");
+							}),
+						hover_at: setHoverX,
 					})}
 				</div>
 
@@ -1117,7 +1160,7 @@ function CalendarWidget(props) {
 	return no_meeting ? <ERrorScreeN /> : (no_user ? the_small_thing : the_big_thing);
 }
 
-function NewMeetingDialog({setid}) {
+function NewMeetingDialog({setid}:{setid:SetNumberFn}):JSX.Element {
 	let [ti,setTi] = React.useState("Our stupid meeting");
 	let [de,setDe] = React.useState("");
 	let [sent,setSent] = React.useState(false);
@@ -1144,10 +1187,15 @@ function NewMeetingDialog({setid}) {
 					descr: de,
 					from: now,
 					to: end,
+					id: -1,
+					mtime: now
 				};
 				create_meeting(me, setErr)
-					.then((md) => setid(md.meeting.id))
-					.catch(() => setSent(false)) ;
+					.then((md:MeetingData) => setid(md.meeting.id))
+					.catch((err:any) => {
+						setSent(false);
+						console.log('oopsy when creating meeting', err);
+					});
 			}}
 			disabled={dis}
 			>Create meeting</button>
@@ -1161,8 +1209,8 @@ function NewMeetingDialog({setid}) {
 	</div>;
 }
 
-function App(props) {
-	let [id, setid] = React.useState(-1);
+function App(props:any) {
+	let [id, setid] = React.useState<number>(-1);
 	let p = window.location.pathname.replace(/\//gm, '');
 
 	React.useEffect(() => {
@@ -1181,12 +1229,12 @@ function App(props) {
 
 	return <main className={"App" + (check_debug_mode() ? " debug" : "")}>
 		{id < 0 ?
-			<NewMeetingDialog setid={(x) => {
+			<NewMeetingDialog setid={(x:number) => {
 				setid(x);
 				window.history.pushState("","","/"+get_meeting_path(x));
 			}} />
 		:
-			<CalendarWidget key={id} the_meeting_id={id} />
+			<CalendarWidget key={id} me_id={id} />
 		}
 	</main>;
 }
