@@ -4,7 +4,7 @@ import './App.css';
 import { FRONTEND, BACKEND } from './config';
 import * as U from './util';
 import { SetStringFn, SetDateFn, SetBooleanFn, SetNumberFn } from './util';
-import { UserAvailab, UserAvailabT } from './timeslots';
+import { UserAvailab, UserAvailabT, uat_to_li } from './timeslots';
 import { Meeting, MeetingResponse } from './types';
 import { check_debug_mode } from './util';
 import TimeslotTable from './TimeslotTable';
@@ -23,16 +23,6 @@ Move the cursor somewhere else and click again to paint the selected times.
 They will be painted as "available" if the last clicked time is after the initially clicked time.
 They will be painted as "unavailable" if the last clicked time is before the initially clicked time.
 `;
-
-function uat_to_li(t: UserAvailabT):JSX.Element {
-	return (
-	<li key={t.from.toISOString()} className="item">
-		<span>{U.DDMM(t.from)} </span>
-		<span>{U.day_title(t.from)} </span>
-		<span>{U.HHMM(t.from)}</span> .. <span> {U.HHMM(t.to)}</span>
-	</li>
-	);
-}
 
 function set_title(id?:number, title?:string) {
 	let t = "Meeting timetable" + (!title ? "" : ": " + title);

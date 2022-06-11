@@ -70,3 +70,13 @@ export function print_intervals(tv: UserAvailabT[]) {
 	}
 }
 
+export function uat_to_li(t: UserAvailabT):JSX.Element {
+	return (
+	<li key={t.from.toISOString()} className="item">
+		<span>{DDMM(t.from)} </span>
+		<span>{day_title(t.from)} </span>
+		<span>{HHMM(t.from)}</span> .. <span> {HHMM(t.to)}</span>
+	</li>
+	);
+}
+
