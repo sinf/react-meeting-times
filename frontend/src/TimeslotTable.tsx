@@ -1,5 +1,4 @@
-import { TIMESLOTS_WEEK, TIMESLOTS_DAY, TIMESLOTS_HOUR, TIMESLOT_DURATION_MIN, FIRST_VISIBLE_TIMESLOT } from './config';
-import * as U from './util';
+import { TIMESLOTS_WEEK, TIMESLOTS_DAY, FIRST_VISIBLE_TIMESLOT } from './config';
 import * as T from './timeslots';
 
 class TimeslotTable {

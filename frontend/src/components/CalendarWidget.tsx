@@ -4,15 +4,15 @@ import * as A from '../agent';
 import { WysiwygLink } from '../util';
 import ERrorScreeN from './ErrorScreen';
 import LoginScreen from './LoginScreen';
-import { UserAvailab, UserAvailabT, uat_to_li } from '../timeslots';
+import { UserAvailabT, uat_to_li } from '../timeslots';
 import { HoverAt, Hourgrid } from '../Hourgrid';
 import { get_saved_user, set_saved_user, is_valid_username } from '../user';
 import WeekNavButs from './WeekNavButs';
 import TimeslotTable from '../TimeslotTable';
 import TimeslotTable2 from '../TimeslotTable2';
 import MeetingData from '../MeetingData';
-import { Textfield, Textfield2, TextfieldProps } from './Textfield';
-import { FRONTEND, BACKEND } from '../config';
+import { Textfield } from './Textfield';
+import { FRONTEND } from '../config';
 
 const howto = `
 Click on the calendar to start selecting a time interval.
@@ -30,7 +30,7 @@ function CalendarWidget({me_id}:{me_id:number}):JSX.Element {
 	const VIEW = "VIEW";
 	const EDIT_NAME = "EDIT_NAME";
 	const EDIT_TIME = "EDIT_TIME";
-	const SEND_TIME = "40";
+	//const SEND_TIME = "40";
 
 	let [state, setState] = React.useState<string>(INIT);
 

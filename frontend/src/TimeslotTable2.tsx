@@ -1,5 +1,5 @@
-import { TIMESLOTS_WEEK, TIMESLOTS_DAY, TIMESLOTS_HOUR, TIMESLOT_DURATION_MIN, FIRST_VISIBLE_TIMESLOT } from './config';
-import { UserAvailabT, UserAvailab, ranges_to_timeslots } from './timeslots';
+import { TIMESLOTS_WEEK } from './config';
+import { UserAvailabT, ranges_to_timeslots } from './timeslots';
 import MeetingData from './MeetingData';
 
 class TimeslotTable2 {
@@ -37,7 +37,7 @@ class TimeslotTable2 {
 	enum_users_ul(i:number):JSX.Element {
 		if (this.ts === undefined || this.ts[i] === undefined) return <ul><li>undefinedoops</li></ul>;
 		let tmp=[];
-		for (const [k,v] of this.ts[i]) {
+		for (const [k,_] of this.ts[i]) {
 			tmp.push(<li key={k}>{k}</li>);
 		}
 		return <ul className="inline-list userNameList">{tmp}</ul>;

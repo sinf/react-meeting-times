@@ -1,5 +1,5 @@
-import { TIMESLOTS_HOUR, TIMESLOTS_DAY, TIMESLOTS_WEEK, TIMESLOT_DURATION_MIN, FIRST_VISIBLE_TIMESLOT } from './config';
-import {DDMM, HHMM, HHMM_1, HHMMSS, day_title, add_min} from './util';
+import { TIMESLOT_DURATION_MIN } from './config';
+import { DDMM, HHMM, day_title, add_min } from './util';
 
 export interface UserAvailabT {
 	status: number;

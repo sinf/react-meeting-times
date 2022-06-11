@@ -1,6 +1,6 @@
 import { Meeting } from './types';
 import { FRONTEND, BACKEND } from './config';
-import { TIMESLOTS_HOUR, TIMESLOTS_DAY, TIMESLOTS_WEEK, TIMESLOT_DURATION_MIN, FIRST_VISIBLE_TIMESLOT } from './config';
+import { TIMESLOTS_HOUR, TIMESLOTS_DAY, TIMESLOT_DURATION_MIN } from './config';
 
 export type SetNumberFn = (x: number) => any;
 export type SetStringFn = (x: string) => any;

@@ -3,7 +3,7 @@ import * as A from '../agent';
 import * as U from '../util';
 import * as T from '../types';
 import MeetingData from '../MeetingData';
-import {Textfield, Textfield2, TextfieldProps} from './Textfield';
+import { Textfield2 } from './Textfield';
 
 export default
 function NewMeetingDialog({setid}:{setid:U.SetNumberFn}):JSX.Element {
