@@ -3,7 +3,6 @@ import React from 'react';
 import './App.css';
 import { FRONTEND, BACKEND } from './config';
 import * as U from './util';
-import { SetStringFn, SetDateFn, SetBooleanFn, SetNumberFn } from './util';
 import { UserAvailab, UserAvailabT, uat_to_li } from './timeslots';
 import { Meeting, MeetingResponse } from './types';
 import { check_debug_mode } from './util';
@@ -16,6 +15,8 @@ import {Textfield, Textfield2, TextfieldProps} from './components/Textfield';
 import NewMeetingDialog from './components/NewMeetingDialog';
 import WeekNavButs from './components/WeekNavButs';
 import ToggleBut from './components/ToggleBut';
+import LoginScreen from './components/LoginScreen';
+import {get_saved_user, set_saved_user, is_valid_username} from './user';
 
 const howto = `
 Click on the calendar to start selecting a time interval.
@@ -33,52 +34,6 @@ function set_title(id?:number, title?:string) {
 
 function WysiwygLink({url}:{url:string}):JSX.Element {
 	return <a href={url}>{url}</a>;
-}
-
-function get_saved_user():string|undefined {
-	return localStorage.getItem('username') || undefined;
-}
-
-function set_saved_user(x:string) {
-	localStorage.setItem('username', x);
-}
-
-function is_valid_username(x:string):[boolean,string] {
-	const lmin = 2;
-	const lmax = 28;
-	let ok = true;
-	let reason = "";
-	let xt = x?.trim();
-	if (!x || xt.length < lmin) {
-		ok = false;
-		reason = `It should have at least ${lmin} character${lmin>1?"s":""}`;
-	} else if (xt.length > lmax) {
-		ok = false;
-		reason = `It should have at most ${lmax} characters`;
-	}
-	return [ok, reason];
-}
-
-function LoginScreen({user,setUser}:{user?:string, setUser:SetStringFn}):JSX.Element {
-	return (
-	<div className="username-wrap">
-		<p>Choose a username</p>
-		<div>
-			<Textfield
-				key="username in login screen"
-				text={user}
-				setText={setUser}
-				edit={true}
-				canEdit={true}
-				setEdit={(x:boolean) => true}
-				label="Username"
-				maxlen={28}
-				validate={is_valid_username}
-				/>
-		</div>
-		<p>This will be remembered in local storage</p>
-	</div>
-	);
 }
 
 function ERrorScreeN():JSX.Element {
