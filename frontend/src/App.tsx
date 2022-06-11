@@ -15,16 +15,7 @@ import * as A from './agent';
 import {Textfield, Textfield2, TextfieldProps} from './components/Textfield';
 import NewMeetingDialog from './components/NewMeetingDialog';
 import WeekNavButs from './components/WeekNavButs';
-
-function ToggleBut({state,setState,label,canToggle}:
-	{state:boolean,setState:SetBooleanFn,label:string,canToggle:boolean}
-):JSX.Element {
-	return (
-		<button
-			onClick={(e:any) => setState(!state)}
-			disabled={!canToggle}>{label[state ? 1 : 0]}</button>
-	);
-}
+import ToggleBut from './components/ToggleBut';
 
 const howto = `
 Click on the calendar to start selecting a time interval.
