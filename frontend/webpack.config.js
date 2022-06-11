@@ -1,7 +1,12 @@
 // vim: set shiftwidth=2 tabstop=2 expandtab:
 const path = require('path');
+const webpack = require('webpack');
 
-module.exports = {
+module.exports = (env) => {
+  console.log("BACKEND_URL:", env.BACKEND_URL);
+  console.log("FRONTEND_URL:", env.FRONTEND_URL);
+  const x =
+{
   entry: './src/index.tsx',
   output: {
     path: path.resolve(__dirname, 'build'),
@@ -36,6 +41,18 @@ module.exports = {
         ],
       },
     ],
-  }
+  },
+  plugins: [
+    new webpack.DefinePlugin({
+      process: {
+        env: {
+          BACKEND_URL: env.BACKEND_URL,
+          FRONTEND_URL: env.FRONTEND_URL,
+        }
+      }
+    })
+  ]
+};
+  return x;
 };
 
