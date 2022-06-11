@@ -1,0 +1,16 @@
+
+.new-meeting-form {
+	max-width: 30em;
+}
+
+.new-meeting-form {
+	position: relative;
+	margin: auto;
+	text-align: left;
+}
+
+.new-meeting-form input,
+.new-meeting-form textarea {
+	width: 100%;
+}
+

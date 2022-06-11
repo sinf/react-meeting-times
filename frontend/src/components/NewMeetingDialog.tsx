@@ -4,6 +4,7 @@ import * as U from '../util';
 import * as T from '../types';
 import MeetingData from '../MeetingData';
 import { Textfield2 } from './Textfield';
+import './NewMeetingDialog.css';
 
 export default
 function NewMeetingDialog({setid}:{setid:U.SetNumberFn}):JSX.Element {

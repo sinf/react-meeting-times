@@ -1,0 +1,102 @@
+table.calendar {
+	border-collapse: collapse;
+	margin: 0.5em auto 0.5em auto;
+}
+.calendar, .calendar * {
+	pointer-events: none;
+}
+.init .calendar:before {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: black;
+	opacity: 0.7;
+	z-index: 10;
+	border-radius: 1em;
+}
+
+.calendar th.day {
+	border: 1px solid black;
+	font-size: 75%;
+}
+.calendar th.day[data-today="true"] {
+	background: yellow;
+	color: black;
+}
+.calendar td, .calendar th {
+	padding: 0;
+	min-width: 2.5em;
+	max-width: 2.5em;
+	overflow: visible;
+}
+
+.timeslot:last-of-type {
+	border-bottom: 1px dotted black;
+}
+tr:nth-of-type(even) .hourlabel {
+	visibility: hidden;
+}
+.hourlabel {
+	position: relative;
+	top: -0.75em;
+}
+tr:nth-of-type(odd) .hourlabel {
+	vertical-align: top;
+}
+.timeslot {
+	pointer-events: auto;
+	border-left: 1px solid black;
+	width: 100%;
+	height: 0.75em;
+	position: relative;
+}
+.timeslot > div {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+}
+
+.calendar td:nth-of-type(8) {
+	border-right: 1px solid black;
+}
+
+.calendar .timeslot:hover .hl { border: 2px solid white }
+
+.calendar .timeslot.edit.color0 { background: #82A1F5; }
+.calendar .timeslot.edit.color0:nth-of-type(odd) { background: #7490DB; }
+.calendar .timeslot.edit.color1 { background: #C6F582; }
+.calendar .timeslot.edit.color1:nth-of-type(odd) { background: #B1DB74; }
+.calendar .timeslot.edit.paint:nth-of-type(n) { background: white; }
+
+.calendar .timeslot.color0 { background: #E6EFFF; }
+.calendar .timeslot.color1 { background: #B6D2FF; }
+.calendar .timeslot.color2 { background: #98B0D6; }
+.calendar .timeslot.color3 { background: #7B8EAD; }
+.calendar .timeslot.color4 { background: #5E6D85; }
+.calendar .timeslot.color5 { background: #414B5C; }
+
+.calendar .timeslot.inspect:nth-of-type(n):after {
+	content: '';
+	position: relative;
+	width: 100%;
+	height: 100%;
+	display: block;
+	background-image: linear-gradient(45deg, #A49400FF 16.67%, #A4940000 16.67%, #A4940000 50%, #A49400FF 50%, #A49400FF 66.67%, #A4940000 66.67%, #A4940000 100%);
+	background-size: 0.75em 0.75em;
+}
+
+.calendar .timeslot.view.paint:nth-of-type(n):after {
+	content: '';
+	position: relative;
+	width: 100%;
+	height: 100%;
+	display: block;
+	background: #A49400;
+	opacity: 0.7;
+}
+

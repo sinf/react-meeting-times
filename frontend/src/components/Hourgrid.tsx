@@ -1,6 +1,7 @@
 import React from 'react';
 import { TIMESLOTS_HOUR, TIMESLOTS_DAY, FIRST_VISIBLE_TIMESLOT } from '../config';
 import { get_week_days, same_day, day_title_tag } from '../util';
+import './Hourgrid.css';
 
 export interface HoverAt {
 	i: number; // hovered cell

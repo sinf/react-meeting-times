@@ -1,5 +1,6 @@
 import React from 'react';
 import {SetStringFn, SetBooleanFn} from '../util';
+import './Textfield.css';
 
 export interface TextfieldProps {
 	text?: string;
