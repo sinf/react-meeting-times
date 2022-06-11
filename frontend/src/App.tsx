@@ -14,31 +14,7 @@ import { HoverAt, Hourgrid } from './Hourgrid';
 import * as A from './agent';
 import {Textfield, Textfield2, TextfieldProps} from './components/Textfield';
 import NewMeetingDialog from './components/NewMeetingDialog';
-
-const WeekNavButs = (
-{cursor,setCursor,dis}:{cursor:Date,setCursor:SetDateFn,dis:boolean}
-) => {
-	return (
-   <div className="weekNav button-group">
-		<div className="weekNr">
-			Week {U.week_nr(cursor)} of {cursor.getFullYear()}
-		</div>
-		<button
-			onClick={(e) => setCursor(U.add_days(cursor, -7))}
-			disabled={dis}
-			>&lt;- Go that way</button>
-		<button
-			onClick={(e) => setCursor(new Date())}
-			disabled={dis}
-			>Go to present</button>
-		<button
-			onClick={(e) => setCursor(U.add_days(cursor, 7))}
-			disabled={dis}
-			>Go this way -&gt;</button>
-	</div>
-	);
-}
-
+import WeekNavButs from './components/WeekNavButs';
 
 function ToggleBut({state,setState,label,canToggle}:
 	{state:boolean,setState:SetBooleanFn,label:string,canToggle:boolean}
