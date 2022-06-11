@@ -1,15 +1,29 @@
+import { TIMESLOTS_HOUR, TIMESLOTS_DAY, TIMESLOTS_WEEK, TIMESLOT_DURATION_MIN, FIRST_VISIBLE_TIMESLOT } from './config';
+import {DDMM, HHMM, HHMM_1, HHMMSS, day_title, add_min} from './util';
 
-function drop_between_t(uu: UserAvailabT[], from: Date, to:Date): UserAvailabT[] {
+export interface UserAvailabT {
+	status: number;
+	from: Date;
+	to: Date;
+}
+
+export interface UserAvailab {
+	meeting: number;
+	username: string;
+	T: UserAvailabT[];
+}
+
+export function drop_between_t(uu: UserAvailabT[], from: Date, to:Date): UserAvailabT[] {
 	return uu.filter((u) => !(u.from <= to && u.to >= from));
 }
-function pick_between_t(uu: UserAvailabT[], from: Date, to:Date): UserAvailabT[] {
+export function pick_between_t(uu: UserAvailabT[], from: Date, to:Date): UserAvailabT[] {
 	return uu.filter((u) => u.from <= to && u.to >= from);
 }
-function update_range(a: UserAvailabT[], b: UserAvailabT[], from:Date, to:Date): UserAvailabT[] {
+export function update_range(a: UserAvailabT[], b: UserAvailabT[], from:Date, to:Date): UserAvailabT[] {
 	return drop_between_t(a, from, to).concat(b);
 }
 
-function timeslots_to_ranges(t_start: Date, timeslots: number[]): UserAvailabT[] {
+export function timeslots_to_ranges(t_start: Date, timeslots: number[]): UserAvailabT[] {
 	let ua : UserAvailabT[] = [];
 	let i0 = 0;
 	while(i0 < timeslots.length) {
@@ -27,13 +41,13 @@ function timeslots_to_ranges(t_start: Date, timeslots: number[]): UserAvailabT[]
 	return ua;
 }
 
-function calc_timeslot(t_start: Date, t: Date) {
+export function calc_timeslot(t_start: Date, t: Date) {
 	const dur = TIMESLOT_DURATION_MIN * 60 * 1000;
 	const dt = t.valueOf() - t_start.valueOf();
 	return Math.floor(dt / dur);
 }
 
-function ranges_to_timeslots(t_start: Date, timeslots: number[], time_ranges: UserAvailabT[]) {
+export function ranges_to_timeslots(t_start: Date, timeslots: number[], time_ranges: UserAvailabT[]) {
 	for(const t of time_ranges) {
 		let i0 = calc_timeslot(t_start, t.from);
 		let i1 = calc_timeslot(t_start, t.to);
@@ -45,12 +59,12 @@ function ranges_to_timeslots(t_start: Date, timeslots: number[], time_ranges: Us
 	}
 }
 
-function uat_str(t: UserAvailabT):string {
+export function uat_str(t: UserAvailabT):string {
 	const f = t.from;
 	return `${DDMM(f)} ${day_title(f)}: ${HHMM(f)} .. ${HHMM(t.to)}  status=${t.status}`;
 }
 
-function print_intervals(tv: UserAvailabT[]) {
+export function print_intervals(tv: UserAvailabT[]) {
 	for(const t of tv) {
 		console.log(uat_str(t));
 	}

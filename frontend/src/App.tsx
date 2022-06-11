@@ -1,13 +1,20 @@
 // vim: set syntax=javascript :
 import React from 'react';
 import './App.css';
-import './config';
-import './types';
-import './util';
-import './timeslots';
+import { FRONTEND, BACKEND } from './config';
+import * as U from './util';
+import { UserAvailab, UserAvailabT } from './timeslots';
+import { Meeting, MeetingResponse } from './types';
+import { check_debug_mode } from './util';
 import TimeslotTable from './TimeslotTable';
 import MeetingData from './MeetingData';
 import TimeslotTable2 from './TimeslotTable2';
+import { HoverAt, Hourgrid } from './Hourgrid';
+
+type SetNumberFn = (x: number) => any;
+type SetStringFn = (x: string) => any;
+type SetBooleanFn = (x: boolean) => any;
+type SetDateFn = (x: Date) => any;
 
 async function get_body(x:Response,setErr:SetStringFn):Promise<string> {
 	let body = x.text();
@@ -22,17 +29,17 @@ async function get_body(x:Response,setErr:SetStringFn):Promise<string> {
 function get_newly_created_meeting(x:string,setErr:SetStringFn):MeetingData {
 	const j:Meeting = JSON.parse(x);
 	let me = new MeetingData(j.id);
-	me.meeting = unfuck_dates(j);
+	me.meeting = U.unfck_dates(j);
 	return me;
 }
 
 async function create_meeting(m:Meeting, setErr:SetStringFn):Promise<MeetingData> {
-	const u = make_backend_url('create');
+	const u = U.make_backend_url('create');
 	const b = JSON.stringify(m);
 	console.log("try to create meeting", u);
 	console.log(b);
 	setErr('requested creation of new meeting');
-	let r = await debug_fetch(u, {method:'POST', body: b});
+	let r = await U.debug_fetch(u, {method:'POST', body: b});
 	let body = await get_body(r, setErr);
 	return get_newly_created_meeting(body, setErr);
 }
@@ -45,11 +52,11 @@ function parsulate_json_meeting_get_respose_function_thingy_123(body:string,setE
 }
 
 async function fetch_meeting(meeting_id:number, setErr:SetStringFn):Promise<MeetingData|undefined> {
-	let u = make_backend_url('meeting/' + meeting_id);
+	let u = U.make_backend_url('meeting/' + meeting_id);
 	console.log("start fetching meeting", u);
 	setErr('requested data');
 	try {
-		let r = await debug_fetch(u);
+		let r = await U.debug_fetch(u);
 		let b = await get_body(r, setErr);
 		return parsulate_json_meeting_get_respose_function_thingy_123(b,setErr);
 	} catch(err) {
@@ -61,140 +68,17 @@ async function fetch_meeting(meeting_id:number, setErr:SetStringFn):Promise<Meet
 
 async function update_meeting_t(ua:UserAvailab, setErr:SetStringFn):Promise<MeetingData> {
 	const id = ua.meeting;
-	const u = make_backend_url('update');
+	const u = U.make_backend_url('update');
 	const b = JSON.stringify(ua);
 
 	console.log("update meeting", u, 'id:', id, "user:", ua.username, "rows:", ua.T.length);
 	setErr('push update');
 
-	let r = await debug_fetch(u, {method:'POST', body: b});
+	let r = await U.debug_fetch(u, {method:'POST', body: b});
 	let body = await get_body(r, setErr);
 	return parsulate_json_meeting_get_respose_function_thingy_123(body, setErr);
 //		.catch(err => console.log('oopsy w/ meeting', id+':\n', err));
 }
-
-interface HoverAt {
-	i: number; // hovered cell
-	x: number; // cursor x coord
-	y: number; // cursor y coord
-	a?: number; // first cell
-	b?: number; // last cell
-	ok: boolean;
-}
-
-const Hourgrid = (
-{cursor,paint_cells,edit,hover_at,cell_class}
-:{
-	cursor:Date,
-	paint_cells?:(from:number, to:number, direction:number) => void,
-	edit:boolean,
-	hover_at:(h:HoverAt) => void,
-	cell_class:(cell:number) => string
-}
-) => {
-	const day_start:Date[] = get_week_days(cursor);
-	const today = new Date();
-	let [dragA,setDragA] = React.useState<number|undefined>(undefined);
-	let [dragB,setDragB] = React.useState<number|undefined>(undefined);
-	const dragMin:number = Math.min(dragA||-1,dragB||-1);
-	const dragMax:number = Math.max(dragA||-1,dragB||-1);
-
-	function render_hour_label(h:number, k:string):JSX.Element {
-		return <td key={k} className="hourlabel">{h/TIMESLOTS_HOUR}</td>;
-	}
-	function begin_drag(i:number) {
-		setDragA(i);
-		setDragB(i);
-	}
-	function update_drag(i:number) {
-		if (dragA !== undefined) {
-			setDragB(i);
-		}
-	}
-	function end_drag(i:number) {
-		if (dragA !== undefined && dragB !== undefined && paint_cells) {
-			paint_cells(dragMin, dragMax, dragA == dragB ? -1 : (dragA < dragB ? 1 : 0));
-		}
-		setDragA(undefined);
-		setDragB(undefined);
-	}
-
-	let rows = [];
-	for(let h=FIRST_VISIBLE_TIMESLOT; h<TIMESLOTS_DAY; h+=TIMESLOTS_HOUR) {
-		let row = [];
-		for(let d=0; d<7; ++d) {
-			let hour_block = [];
-			for(let f=0; f<TIMESLOTS_HOUR; ++f) {
-				const i = d * TIMESLOTS_DAY + h + f;
-				const being_painted = dragMin <= i && dragMax >= i;
-				hour_block.push(
-					<div key={i}
-						className={"timeslot"
-							+ (being_painted ? " paint" : "")
-							+ (edit ? " edit" : " view")
-							+ " " + cell_class(i)
-						}
-						onClick={(e) => {
-							if (paint_cells && e.button === 0) {
-								if (dragA === undefined) {
-									begin_drag(i);
-								} else {
-									end_drag(i);
-								}
-							}
-							if (hover_at) {
-								hover_at({i:i, x:e.clientX, y:e.clientY, a:dragA, b:dragB, ok:true});
-							}
-						}}
-						onMouseMove={(e) => {
-							if (paint_cells) update_drag(i);
-							if (hover_at) hover_at({i:i, x:e.clientX, y:e.clientY, a:dragA, b:dragB, ok:true});
-						}}
-						>
-						<div className="hl"/>
-					</div>
-				);
-			}
-			row.push(<td key={d} data-today={same_day(day_start[d], today)}>{hour_block}</td>);
-		}
-		rows.push(
-			<tr key={"row"+h}>
-				{render_hour_label(h, "hourLabelL")}
-				{row}
-				{render_hour_label(h, "hourLabelR")}
-			</tr>
-		);
-	}
-
-	return (
-		<table className="calendar"
-			onMouseLeave={(e) => {
-				if (hover_at) hover_at({i:-1,x:0,y:0,a:0,b:0,ok:false});
-				if (true) {
-					// interrupt drag. annoying when operating near table edge
-					// but easy fix to issues when user clicks some button while dragging
-					setDragA(undefined);
-					setDragB(undefined);
-				}
-			}}>
-			<thead>
-				<tr>
-					<th key="headHourLabelL" className="hourlabel header"></th>
-					{
-						day_start.map((d) =>
-							<th
-								key={d.toISOString()}
-								data-today={same_day(d, today)}
-								className="day"
-							>{day_title_tag(d)}</th>)
-					}
-					<th key="headHourLabelR" className="hourlabel header"></th>
-				</tr>
-			</thead>
-			<tbody>{ rows }</tbody>
-		</table>
-	);
-};
 
 const WeekNavButs = (
 {cursor,setCursor,dis}:{cursor:Date,setCursor:SetDateFn,dis:boolean}
@@ -202,10 +86,10 @@ const WeekNavButs = (
 	return (
    <div className="weekNav button-group">
 		<div className="weekNr">
-			Week {week_nr(cursor)} of {cursor.getFullYear()}
+			Week {U.week_nr(cursor)} of {cursor.getFullYear()}
 		</div>
 		<button
-			onClick={(e) => setCursor(add_days(cursor, -7))}
+			onClick={(e) => setCursor(U.add_days(cursor, -7))}
 			disabled={dis}
 			>&lt;- Go that way</button>
 		<button
@@ -213,7 +97,7 @@ const WeekNavButs = (
 			disabled={dis}
 			>Go to present</button>
 		<button
-			onClick={(e) => setCursor(add_days(cursor, 7))}
+			onClick={(e) => setCursor(U.add_days(cursor, 7))}
 			disabled={dis}
 			>Go this way -&gt;</button>
 	</div>
@@ -319,9 +203,9 @@ They will be painted as "unavailable" if the last clicked time is before the ini
 function uat_to_li(t: UserAvailabT):JSX.Element {
 	return (
 	<li key={t.from.toISOString()} className="item">
-		<span>{DDMM(t.from)} </span>
-		<span>{day_title(t.from)} </span>
-		<span>{HHMM(t.from)}</span> .. <span> {HHMM(t.to)}</span>
+		<span>{U.DDMM(t.from)} </span>
+		<span>{U.day_title(t.from)} </span>
+		<span>{U.HHMM(t.from)}</span> .. <span> {U.HHMM(t.to)}</span>
 	</li>
 	);
 }
@@ -423,7 +307,7 @@ function CalendarWidget({me_id}:{me_id:number}):JSX.Element {
 	let [pollnr,setPollnr] = React.useState<number>(0);
 
 	let [statusMsg,setStatusMsg] = React.useState<string>("");
-	let setErr = (x:string) => setStatusMsg('['+HHMMSS(new Date())+'] '+x);
+	let setErr = (x:string) => setStatusMsg('['+U.HHMMSS(new Date())+'] '+x);
 	let setOk = setErr;
 
 	let [no_meeting,set_no_meeting] = React.useState<boolean>(false);
@@ -474,7 +358,7 @@ function CalendarWidget({me_id}:{me_id:number}):JSX.Element {
 
 	// have one TimeslotTable for each week.
 	let [tsCache,setTsCache] = React.useState(new Map<string,TimeslotTable>());
-	const week_start = monday(cursor);
+	const week_start = U.monday(cursor);
 	const week_id = week_start.toISOString();
 	let setTs = (t: TimeslotTable) => {
 		tsCache.set(week_id, t);
@@ -521,7 +405,7 @@ function CalendarWidget({me_id}:{me_id:number}):JSX.Element {
 		const i = hoverX.i;
 		const edit = state == EDIT_TIME;
 		return (<div className="tooltip-content">
-			<div className="title">{hour_of_timeslot(i)} - {hour_of_timeslot(i+1)}</div>
+			<div className="title">{U.hour_of_timeslot(i)} - {U.hour_of_timeslot(i+1)}</div>
 			{edit ? undefined : <div>
 				Users: {ts2.num_users(i)}
 				{ts2.enum_users_ul(i)}
@@ -655,7 +539,7 @@ function CalendarWidget({me_id}:{me_id:number}):JSX.Element {
 							<div className="title">
 								{inspected_users.length}
 								<span> users within </span>
-								{hour_of_timeslot(inspectCells[0])} - {hour_of_timeslot(inspectCells[1]+1)}
+								{U.hour_of_timeslot(inspectCells[0])} - {U.hour_of_timeslot(inspectCells[1]+1)}
 							</div>
 							<ul className="inline-list">
 							{inspected_users.map((name) => <li key={name}>{name}</li>)}
@@ -719,7 +603,7 @@ function CalendarWidget({me_id}:{me_id:number}):JSX.Element {
 					{Hourgrid({cursor:cursor,edit:(state == EDIT_TIME),
 						paint_cells:
 							(state == EDIT_TIME || state == VIEW)
-							? (from,to,color) => {
+							? (from:number,to:number,color:number) => {
 								if (state == EDIT_TIME) {
 									setTs(ts.paint(from, to, color));
 									setTsDirty(true);
@@ -744,7 +628,7 @@ function CalendarWidget({me_id}:{me_id:number}):JSX.Element {
 						<h1>{me?.meeting?.title}</h1>
 						<p>{me?.meeting?.descr}</p>
 						<div>Link to this meeting
-							<WysiwygLink url={get_meeting_url(me?.meeting?.id)} />
+							<WysiwygLink url={U.get_meeting_url(me?.meeting?.id)} />
 						</div>
 						<div>Last modification: {mtime.toISOString()}</div>
 					</div>
@@ -778,7 +662,7 @@ function NewMeetingDialog({setid}:{setid:SetNumberFn}):JSX.Element {
 				setSent(true);
 
 				let now = new Date();
-				let end = add_days(now, 90);
+				let end = U.add_days(now, 90);
 				let me:Meeting = {
 					title: ti,
 					descr: de,
@@ -824,7 +708,7 @@ function App(props:any):JSX.Element {
 	}, [id]);
 
 	if (p && p.length == 2 && /^\d+$/.test(p[1])) {
-		const i = decode_meeting_id(parseInt(p[1]));
+		const i = U.decode_meeting_id(parseInt(p[1]));
 		if (i != id) {
 			console.log('looks like you have id in a url parameter', p[1]);
 			setid(id = i);
@@ -836,7 +720,7 @@ function App(props:any):JSX.Element {
 			{id < 0 ?
 				<NewMeetingDialog setid={(x:number) => {
 					setid(x);
-					window.history.pushState("","","/"+get_meeting_path(x));
+					window.history.pushState("","","/"+U.get_meeting_path(x));
 				}} />
 			:
 				<MeetingPageN id={id} />

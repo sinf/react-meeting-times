@@ -1,7 +1,6 @@
-import './config';
-import './types';
-import './util';
-import './timeslots';
+import { TIMESLOTS_WEEK, TIMESLOTS_DAY, TIMESLOTS_HOUR, TIMESLOT_DURATION_MIN, FIRST_VISIBLE_TIMESLOT } from './config';
+import * as U from './util';
+import * as T from './timeslots';
 
 class TimeslotTable {
 	start: Date;
@@ -20,17 +19,17 @@ class TimeslotTable {
 		return c;
 	}
 
-	to_intervals(): UserAvailabT[] {
+	to_intervals(): T.UserAvailabT[] {
 		// user cant see earliest hours, so blank them out here to prevent unintended availability
 		let ts1:number[] = [];
 		for(let i=0; i<this.ts.length; ++i) {
 			ts1[i] = Math.floor(i % TIMESLOTS_DAY) < FIRST_VISIBLE_TIMESLOT ? 0 : this.ts[i];
 		}
-		return timeslots_to_ranges(this.start, ts1);
+		return T.timeslots_to_ranges(this.start, ts1);
 	}
 
-	from_intervals(tv:UserAvailabT[]) {
-		ranges_to_timeslots(this.start, this.ts, tv);
+	from_intervals(tv:T.UserAvailabT[]) {
+		T.ranges_to_timeslots(this.start, this.ts, tv);
 	}
 
 	copy():TimeslotTable {

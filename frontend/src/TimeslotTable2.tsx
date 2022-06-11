@@ -1,7 +1,5 @@
-import './config';
-import './types';
-import './util';
-import './timeslots';
+import { TIMESLOTS_WEEK, TIMESLOTS_DAY, TIMESLOTS_HOUR, TIMESLOT_DURATION_MIN, FIRST_VISIBLE_TIMESLOT } from './config';
+import { UserAvailabT, UserAvailab, ranges_to_timeslots } from './timeslots';
 import MeetingData from './MeetingData';
 
 class TimeslotTable2 {

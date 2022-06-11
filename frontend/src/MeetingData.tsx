@@ -1,7 +1,6 @@
-import './config';
-import './types';
-import './util';
-import './timeslots';
+import {add_days, monday, unfck_dates} from './util';
+import {Meeting, MeetingResponse} from './types';
+import {UserAvailabT, UserAvailab, print_intervals} from './timeslots';
 import TimeslotTable from './TimeslotTable';
 
 class MeetingData {
@@ -74,7 +73,7 @@ class MeetingData {
 	}
 
 	eat(m: MeetingResponse) {
-		this.meeting = unfuck_dates(m.meeting);
+		this.meeting = unfck_dates(m.meeting);
 		this.users = new Map<string, UserAvailabT[]>();
 		if (m.users) {
 			for(const ua of m.users) {

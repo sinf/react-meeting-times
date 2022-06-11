@@ -1,27 +1,16 @@
+import { UserAvailab } from './timeslots';
 
-type SetNumberFn = (x: number) => any;
-type SetStringFn = (x: string) => any;
-type SetBooleanFn = (x: boolean) => any;
-type SetDateFn = (x: Date) => any;
+export type SetNumberFn = (x: number) => any;
+export type SetStringFn = (x: string) => any;
+export type SetBooleanFn = (x: boolean) => any;
+export type SetDateFn = (x: Date) => any;
 
-interface CalendarProps {
+export interface CalendarProps {
 	t_initial: Date;
 	username?: string;
 }
 
-interface UserAvailabT {
-	status: number;
-	from: Date;
-	to: Date;
-}
-
-interface UserAvailab {
-	meeting: number;
-	username: string;
-	T: UserAvailabT[];
-}
-
-interface CalendarState {
+export interface CalendarState {
 	t_cursor:Date;
 	t: Date[];
 	editmode: boolean;
@@ -33,7 +22,7 @@ interface CalendarState {
 	dirty: boolean;
 }
 
-interface Meeting {
+export interface Meeting {
 	id: number;
 	title: string;
 	descr: string;
@@ -42,7 +31,7 @@ interface Meeting {
 	mtime: Date;
 }
 
-interface MeetingResponse {
+export interface MeetingResponse {
 	meeting: Meeting;
 	users: UserAvailab[];
 }
