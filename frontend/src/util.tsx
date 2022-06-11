@@ -7,6 +7,13 @@ export type SetStringFn = (x: string) => any;
 export type SetBooleanFn = (x: boolean) => any;
 export type SetDateFn = (x: Date) => any;
 
+export function make_backend_url(endpoint:string):string { return BACKEND + endpoint; }
+export function encode_meeting_id(i:number):number { return i; }
+export function decode_meeting_id(i:number):number { return i; }
+export function get_meeting_path(id:number):string { return "?meeting=" + encode_meeting_id(id).toString(); }
+export function get_meeting_url(id:number):string { return FRONTEND + get_meeting_path(id); }
+
+
 export function unfck_dates(m: Meeting):Meeting {
 	return {...m,
 		from:new Date(m.from), // must convert string->date because typescript types are LIES
@@ -128,9 +135,15 @@ export async function get_body(x:Response,setErr:SetStringFn):Promise<string> {
 	return body;
 }
 
-export function make_backend_url(endpoint:string):string { return BACKEND + endpoint; }
-export function encode_meeting_id(i:number):number { return i; }
-export function decode_meeting_id(i:number):number { return i; }
-export function get_meeting_path(id:number):string { return "?meeting=" + encode_meeting_id(id).toString(); }
-export function get_meeting_url(id:number):string { return FRONTEND + get_meeting_path(id); }
+export function set_title(id?:number, title?:string) {
+	let t = "Meeting timetable" + (!title ? "" : ": " + title);
+	if (t !== document.title) {
+		document.title = t;
+	}
+}
+
+export function WysiwygLink({url}:{url:string}):JSX.Element {
+	return <a href={url}>{url}</a>;
+}
+
 
