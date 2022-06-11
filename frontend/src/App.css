@@ -1,0 +1,279 @@
+* {
+	box-sizing: content-box;
+}
+html {
+	background: #202124;
+	color: white;
+	scrollbar-gutter: stable;
+}
+button {
+	color: initial;
+	margin: .1em .25em .1em .25em;
+}
+
+.App {
+	margin: 0.1em auto 5em auto;
+	text-align: center;
+	max-width: 70em;
+}
+
+a {
+	font-weight: bold;
+	background: #BCC0C3;
+	border-radius: 0.2em;
+	padding: 0.1em 0.2em 0.1em 0.2em;
+	margin: 0 0.2em 0 0.2em;
+}
+
+.new-meeting-form {
+	max-width: 30em;
+}
+
+#CalendarRoot, .new-meeting-form {
+	position: relative;
+	margin: auto;
+	text-align: left;
+}
+
+.new-meeting-form input, .new-meeting-form textarea {
+	width: 100%;
+}
+
+.debug .calendar-main {
+	border: 1px solid blue;
+}
+.calendar-main {
+	margin: 0.25em 0 0 0;
+}
+
+table.calendar {
+	border-collapse: collapse;
+	margin: 0.5em auto 0.5em auto;
+}
+.calendar, .calendar * {
+	pointer-events: none;
+}
+.init .calendar:before {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: black;
+	opacity: 0.7;
+	z-index: 10;
+	border-radius: 1em;
+}
+.loading-overlay {
+	font-size: 150%;
+	color: white;
+	z-index: 20;
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	right: 0;
+}
+.loading-overlay > div {
+	margin: auto;
+}
+
+.calendar th.day {
+	border: 1px solid black;
+	font-size: 75%;
+}
+.calendar th.day[data-today="true"] {
+	background: yellow;
+	color: black;
+}
+.calendar td, .calendar th {
+	padding: 0;
+	min-width: 2.5em;
+	max-width: 2.5em;
+	overflow: visible;
+}
+.timeslot:last-of-type {
+	border-bottom: 1px dotted black;
+}
+tr:nth-of-type(even) .hourlabel {
+	visibility: hidden;
+}
+.hourlabel {
+	position: relative;
+	top: -0.75em;
+}
+tr:nth-of-type(odd) .hourlabel {
+	vertical-align: top;
+}
+.timeslot {
+	pointer-events: auto;
+	border-left: 1px solid black;
+	width: 100%;
+	height: 0.75em;
+	position: relative;
+}
+.timeslot > div {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+}
+
+.calendar td:nth-of-type(8) {
+	border-right: 1px solid black;
+}
+
+.calendar .timeslot:hover .hl { border: 2px solid white }
+
+.calendar .timeslot.edit.color0 { background: #82A1F5; }
+.calendar .timeslot.edit.color0:nth-of-type(odd) { background: #7490DB; }
+.calendar .timeslot.edit.color1 { background: #C6F582; }
+.calendar .timeslot.edit.color1:nth-of-type(odd) { background: #B1DB74; }
+.calendar .timeslot.edit.paint:nth-of-type(n) { background: white; }
+
+.calendar .timeslot.color0 { background: #E6EFFF; }
+.calendar .timeslot.color1 { background: #B6D2FF; }
+.calendar .timeslot.color2 { background: #98B0D6; }
+.calendar .timeslot.color3 { background: #7B8EAD; }
+.calendar .timeslot.color4 { background: #5E6D85; }
+.calendar .timeslot.color5 { background: #414B5C; }
+
+.calendar .timeslot.inspect:nth-of-type(n):after {
+	content: '';
+	position: relative;
+	width: 100%;
+	height: 100%;
+	display: block;
+	background-image: linear-gradient(45deg, #A49400FF 16.67%, #A4940000 16.67%, #A4940000 50%, #A49400FF 50%, #A49400FF 66.67%, #A4940000 66.67%, #A4940000 100%);
+	background-size: 0.75em 0.75em;
+}
+
+.calendar .timeslot.view.paint:nth-of-type(n):after {
+	content: '';
+	position: relative;
+	width: 100%;
+	height: 100%;
+	display: block;
+	background: #A49400;
+	opacity: 0.7;
+}
+
+.tooltip {
+	max-width: 20em;
+	pointer-events: none;
+}
+.tooltip .title {
+	font-weight: bold;
+}
+.tooltip-content {
+	position: relative;
+	left: 1em;
+	top: 1em;
+	padding: 0.5em;
+	background: beige;
+	color: black;
+	border: 1px solid black;
+	z-index: 50;
+	text-align: left;
+}
+
+.calendar-buttons-panel {
+	width: 18em;
+	height: 34em;
+
+	text-align: left;
+	color: white;
+	background: black;
+	border-radius: 0.3em;
+	padding: 0.5em;
+
+	display: flex;
+	flex-flow: column nowrap;
+	justify-content: space-between;
+	align-items: stretch;
+	align-content: stretch;
+	gap: 0.1em;
+}
+
+.time-interval-list {
+	height: 100%;
+	overflow: auto;
+	background: #202124;
+}
+.time-interval-list .item span {
+	display: inline-block;
+	min-width: 3em;
+}
+.alright {
+	text-align: right;
+}
+
+.inline-list {
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	flex-direction: row;
+	justify-content: flex-start;
+}
+.inline-list li {
+	margin: 0 0.25em 0 1em;
+}
+
+.username-wrap {
+	margin: 0.25em 0 0.25em 0;
+}
+
+nav {
+	list-style: none;
+	display: inline-block;
+	float: right;
+	margin: 0 0 0.2em 0;
+}
+nav li {
+	padding: 0.2em;
+	background: black;
+	display: flex;
+	border-radius: 0.3em;
+	margin: auto 0.2em auto 0.2em;
+	float: right;
+	min-height: 1.8em;
+}
+.textfield {
+	min-height: 1em;
+}
+.status-msg {
+	margin: 0 0 0.2em 0;
+	display: inline-block;
+	height: 1.5em;
+	width: 20em;
+}
+
+.columns-container {
+	display: flex;
+
+	flex-direction: row;
+	flex-wrap: wrap;
+	flex-flow: row wrap;  /* shorthand for above */
+
+	justify-content: space-around; /* for main axis (=row) */
+	align-items: stretch; /* for secondary axis (=column) */
+	align-content: flex-start; /* secondary axis (what to do if theres extra empty space) */
+	gap: 0.5em;
+}
+
+.meeting-info {
+	min-width: 10em;
+	max-width: 30em;
+}
+
+.button-group.startstop button {
+	display: block;
+}
+
+.weekNr, .weekNav {
+	text-align: center;
+}
+

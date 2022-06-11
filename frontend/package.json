@@ -1,0 +1,29 @@
+{
+  "name": "meeting-timetables-app",
+  "version": "0.1.1",
+  "description": "todo write description",
+  "main": "index.js",
+  "author": "ArhoM",
+  "license": "ISC",
+  "scripts": {
+    "start": "webpack-dev-server --mode=development --hot --static-watch --live-reload --client-overlay --client-progress --port 3000 --history-api-fallback",
+    "build": "webpack --mode=production",
+    "test": "echo Tests totally OK"
+  },
+  "dependencies": {
+    "@types/node": "^17.0.31",
+    "@types/react": "^18.0.8",
+    "@types/react-dom": "^18.0.3",
+    "react": "^18.1.0",
+    "react-dom": "^18.1.0"
+  },
+  "devDependencies": {
+    "css-loader": "^6.7.1",
+    "style-loader": "^3.3.1",
+    "ts-loader": "^9.3.0",
+    "typescript": "^4.6.4",
+    "webpack": "^5.72.0",
+    "webpack-cli": "^4.9.2",
+    "webpack-dev-server": "^4.9.0"
+  }
+}
