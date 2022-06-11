@@ -16,16 +16,6 @@ type SetStringFn = (x: string) => any;
 type SetBooleanFn = (x: boolean) => any;
 type SetDateFn = (x: Date) => any;
 
-async function get_body(x:Response,setErr:SetStringFn):Promise<string> {
-	let body = x.text();
-	if (!x.ok) {
-		let t = "got non-OK response: " + await body;
-		setErr(t);
-		throw new Error(t);
-	}
-	return body;
-}
-
 function get_newly_created_meeting(x:string,setErr:SetStringFn):MeetingData {
 	const j:Meeting = JSON.parse(x);
 	let me = new MeetingData(j.id);
@@ -40,7 +30,7 @@ async function create_meeting(m:Meeting, setErr:SetStringFn):Promise<MeetingData
 	console.log(b);
 	setErr('requested creation of new meeting');
 	let r = await U.debug_fetch(u, {method:'POST', body: b});
-	let body = await get_body(r, setErr);
+	let body = await U.get_body(r, setErr);
 	return get_newly_created_meeting(body, setErr);
 }
 
@@ -57,7 +47,7 @@ async function fetch_meeting(meeting_id:number, setErr:SetStringFn):Promise<Meet
 	setErr('requested data');
 	try {
 		let r = await U.debug_fetch(u);
-		let b = await get_body(r, setErr);
+		let b = await U.get_body(r, setErr);
 		return parsulate_json_meeting_get_respose_function_thingy_123(b,setErr);
 	} catch(err) {
 		console.log('oopsy w/ meeting', meeting_id+':\n', err);
@@ -75,7 +65,7 @@ async function update_meeting_t(ua:UserAvailab, setErr:SetStringFn):Promise<Meet
 	setErr('push update');
 
 	let r = await U.debug_fetch(u, {method:'POST', body: b});
-	let body = await get_body(r, setErr);
+	let body = await U.get_body(r, setErr);
 	return parsulate_json_meeting_get_respose_function_thingy_123(body, setErr);
 //		.catch(err => console.log('oopsy w/ meeting', id+':\n', err));
 }

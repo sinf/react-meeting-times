@@ -2,6 +2,11 @@ import { Meeting } from './types';
 import { FRONTEND, BACKEND } from './config';
 import { TIMESLOTS_HOUR, TIMESLOTS_DAY, TIMESLOTS_WEEK, TIMESLOT_DURATION_MIN, FIRST_VISIBLE_TIMESLOT } from './config';
 
+export type SetNumberFn = (x: number) => any;
+export type SetStringFn = (x: string) => any;
+export type SetBooleanFn = (x: boolean) => any;
+export type SetDateFn = (x: Date) => any;
+
 export function unfck_dates(m: Meeting):Meeting {
 	return {...m,
 		from:new Date(m.from), // must convert string->date because typescript types are LIES
@@ -111,6 +116,16 @@ export function hour_of_timeslot(i:number):string {
 	const h = Math.floor(i / TIMESLOTS_HOUR);
 	const m = Math.floor(i % TIMESLOTS_HOUR) * TIMESLOT_DURATION_MIN;
 	return HHMM_1(h,m);
+}
+
+export async function get_body(x:Response,setErr:SetStringFn):Promise<string> {
+	let body = x.text();
+	if (!x.ok) {
+		let t = "got non-OK response: " + await body;
+		setErr(t);
+		throw new Error(t);
+	}
+	return body;
 }
 
 export function make_backend_url(endpoint:string):string { return BACKEND + endpoint; }
