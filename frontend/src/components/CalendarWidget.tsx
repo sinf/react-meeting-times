@@ -5,7 +5,7 @@ import { WysiwygLink } from '../util';
 import ERrorScreeN from './ErrorScreen';
 import LoginScreen from './LoginScreen';
 import { UserAvailabT, uat_to_li } from '../timeslots';
-import { HoverAt, Hourgrid } from '../Hourgrid';
+import { HoverAt, Hourgrid } from './Hourgrid';
 import { get_saved_user, set_saved_user, is_valid_username } from '../user';
 import WeekNavButs from './WeekNavButs';
 import TimeslotTable from '../TimeslotTable';

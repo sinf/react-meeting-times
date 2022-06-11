@@ -1,6 +1,6 @@
 import React from 'react';
-import { TIMESLOTS_HOUR, TIMESLOTS_DAY, FIRST_VISIBLE_TIMESLOT } from './config';
-import { get_week_days, same_day, day_title_tag } from './util';
+import { TIMESLOTS_HOUR, TIMESLOTS_DAY, FIRST_VISIBLE_TIMESLOT } from '../config';
+import { get_week_days, same_day, day_title_tag } from '../util';
 
 export interface HoverAt {
 	i: number; // hovered cell
@@ -13,7 +13,7 @@ export interface HoverAt {
 
 export type PaintCellsFn = (from:number, to:number, value:number) => void;
 
-export const Hourgrid = (
+export function Hourgrid(
 {cursor,paint_cells,edit,hover_at,cell_class}
 :{
 	cursor:Date,
@@ -22,7 +22,7 @@ export const Hourgrid = (
 	hover_at:(h:HoverAt) => void,
 	cell_class:(cell:number) => string
 }
-) => {
+) {
 	const day_start:Date[] = get_week_days(cursor);
 	const today = new Date();
 	let [dragA,setDragA] = React.useState<number|undefined>(undefined);
@@ -125,7 +125,5 @@ export const Hourgrid = (
 			<tbody>{ rows }</tbody>
 		</table>
 	);
-};
-
-export default Hourgrid;
+}
 
