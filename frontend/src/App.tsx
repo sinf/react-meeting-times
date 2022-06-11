@@ -1,6 +1,7 @@
 // vim: set syntax=javascript :
 import React from 'react';
 import './App.css';
+import { FRONTEND, BACKEND } from './config';
 import * as U from './util';
 import { SetStringFn, SetDateFn, SetBooleanFn, SetNumberFn } from './util';
 import { UserAvailab, UserAvailabT } from './timeslots';
@@ -11,6 +12,8 @@ import MeetingData from './MeetingData';
 import TimeslotTable2 from './TimeslotTable2';
 import { HoverAt, Hourgrid } from './Hourgrid';
 import * as A from './agent';
+import {Textfield, Textfield2, TextfieldProps} from './components/Textfield';
+import NewMeetingDialog from './components/NewMeetingDialog';
 
 const WeekNavButs = (
 {cursor,setCursor,dis}:{cursor:Date,setCursor:SetDateFn,dis:boolean}
@@ -36,84 +39,6 @@ const WeekNavButs = (
 	);
 }
 
-interface TextfieldProps {
-	text?: string;
-	setText: SetStringFn;
-	label: string;
-	maxlen: number;
-	canEdit: boolean;
-	edit: boolean;
-	setEdit: SetBooleanFn;
-	validate: (x:string) => [boolean,string];
-}
-function Textfield({text,setText,label,maxlen,canEdit,edit,setEdit,validate}:TextfieldProps):JSX.Element {
-	let [buf1,setBuf] = React.useState<string|undefined>(undefined);
-	let buf:string = buf1 || text || "";
-	let id = "textfield-" + label.replace(' ','-');
-
-	if (edit) {
-		let [valid,explanation] = validate ? validate(buf) : [true,""];
-		return (<span className="textfield">
-    		<label htmlFor={id}>{label}: </label>
-    		<input
-    			id={id} name={id} type="text"
-    			value={buf}
-    			onChange={(e) => setBuf(e.target.value)}
-    			maxLength={maxlen} />
-			<span> </span>
-    		<button
-    			onClick={(e) => {
-    				setText(buf);
-    				setEdit(false);
-    			}}
-    			disabled={!valid}
-    			>Enter</button>
-    		<p>{explanation}</p>
-		</span>);
-	} else {
-		return (<span className="textfield">
-			<label>{label}: </label>
-			<span id={id}>{text}</span>
-			<span> </span>
-			<button
-				onClick={(e) => {
-					setBuf(text);
-					setEdit(true);
-				}}
-				disabled={!canEdit}
-				>Edit</button>
-		</span>);
-	}
-}
-
-function Textfield2({buf,setBuf,label,maxlen,rows,cols,dis}:
-	{buf:string,setBuf:SetStringFn,label:string,maxlen:number,rows:number,cols:number,dis:boolean}
-):JSX.Element {
-	let id = "textfield2-" + label;
-	return <div className="textfield">
-    	<label htmlFor={id}>{label}: </label><br/>
-    	{rows == 1 ?
-    		<input
-    			type="text"
-    			id={id}
-    			name={id}
-    			value={buf}
-    			onChange={(e) => setBuf(e.target.value)}
-    			maxLength={maxlen}
-    			disabled={dis} />
-    	:
-    		<textarea
-    			id={id}
-    			name={id}
-    			rows={rows}
-    			cols={cols}
-    			value={buf}
-    			onChange={(e) => setBuf(e.target.value)}
-    			maxLength={maxlen}
-    			disabled={dis} />
-    	}
-	</div>;
-}
 
 function ToggleBut({state,setState,label,canToggle}:
 	{state:boolean,setState:SetBooleanFn,label:string,canToggle:boolean}
@@ -571,55 +496,6 @@ function CalendarWidget({me_id}:{me_id:number}):JSX.Element {
 
 	const the_small_thing = <LoginScreen user={user} setUser={setUser} /> ;
 	return no_meeting ? <ERrorScreeN /> : (no_user ? the_small_thing : the_big_thing);
-}
-
-function NewMeetingDialog({setid}:{setid:SetNumberFn}):JSX.Element {
-	let [ti,setTi] = React.useState("Our stupid meeting");
-	let [de,setDe] = React.useState("");
-	let [sent,setSent] = React.useState(false);
-	let [err,setErr] = React.useState("");
-	const dis = sent;
-	return <div className="new-meeting-form">
-		<h1>You&lsquo;re about to create a meeting</h1>
-		<p>Please describe your meeting briefly. Choose your words wisely because they can&lsquo;t be changed later</p>
-		<Textfield2 buf={ti} setBuf={setTi} label="Title" maxlen={80} rows={1} cols={60} dis={dis} />
-		<Textfield2 buf={de} setBuf={setDe} label="Description" maxlen={640} rows={10} cols={60} dis={dis} />
-		<br/>
-		<button
-			disabled={dis}
-			//onClick={(e) => alert("Nothing happened!")}
-			>Don&lsquo;t create meeting</button>
-		<button
-			onClick={(e) => {
-				setSent(true);
-
-				let now = new Date();
-				let end = U.add_days(now, 90);
-				let me:Meeting = {
-					title: ti,
-					descr: de,
-					from: now,
-					to: end,
-					id: -1,
-					mtime: now
-				};
-				A.create_meeting(me, setErr)
-					.then((md:MeetingData) => setid(md.meeting.id))
-					.catch((err:any) => {
-						setSent(false);
-						console.log('oopsy when creating meeting', err);
-					});
-			}}
-			disabled={dis}
-			>Create meeting</button>
-		{!sent ? undefined :
-			<p>
-				Requested to create a new meeting. Please wait while the server is mucking about.
-				You will be transferred to the meeting calendar hopefully soon
-			</p>
-		}
-		{!err? undefined : <p>Error: {err}</p> }
-	</div>;
 }
 
 function MeetingPageN({id}:{id:number}):JSX.Element {
