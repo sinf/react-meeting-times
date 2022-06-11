@@ -1,8 +1,7 @@
-import SetBooleanFn from '../util';
 
 export default
 function ToggleBut({state,setState,label,canToggle}:
-	{state:boolean,setState:SetBooleanFn,label:string,canToggle:boolean}
+	{state:boolean,setState:(x:boolean)=>any,label:string,canToggle:boolean}
 ):JSX.Element {
 	return (
 		<button
