@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  backend:
+    build:
+      context: ./backend
+    network_mode: host
+
+
